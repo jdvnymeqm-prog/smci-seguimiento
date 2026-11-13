@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "Seguimiento de Proyectos SMCI",
+  "short_name": "Proyectos SMCI",
+  "description": "Seguimiento de proyectos de la Secretaría Municipal de Ciudad Inteligente · GAMLP",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3f5f6",
+  "theme_color": "#18465c",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "iconos/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/icono-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

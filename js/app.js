@@ -7,6 +7,32 @@ import { Ficha } from './vistas/ficha.js';
 import { MiUnidad } from './vistas/miunidad.js';
 import { Admin } from './vistas/admin.js';
 
+// Botón para instalar la aplicación en PC o Android (solo cuando el navegador lo permite)
+function BotonInstalar({ claro }) {
+  const [listo, setListo] = useState(!!window.__instalar);
+  useEffect(() => {
+    const f = () => setListo(!!window.__instalar);
+    addEventListener('instalable', f); return () => removeEventListener('instalable', f);
+  }, []);
+  if (!listo || matchMedia('(display-mode: standalone)').matches) return null;
+  async function instalar() {
+    const e = window.__instalar; if (!e) return;
+    e.prompt(); await e.userChoice; window.__instalar = null; setListo(false);
+  }
+  return html`<button type="button" onClick=${instalar} style=${claro ? '' : 'width:100%;justify-content:center'}>⬇ Instalar aplicación</button>`;
+}
+
+// Aviso cuando no hay conexión (los datos siempre vienen de internet)
+function AvisoSinRed() {
+  const [enLinea, setEnLinea] = useState(navigator.onLine);
+  useEffect(() => {
+    const on = () => setEnLinea(true), off = () => setEnLinea(false);
+    addEventListener('online', on); addEventListener('offline', off);
+    return () => { removeEventListener('online', on); removeEventListener('offline', off); };
+  }, []);
+  return enLinea ? null : html`<div class="aviso atencion" style="margin:0;border-radius:0;text-align:center">Sin conexión a internet: los cambios no se guardarán hasta que vuelva la conexión.</div>`;
+}
+
 function ruta() {
   const r = (location.hash || '#/tablero').slice(2).split('/');
   return { vista: r[0] || 'tablero', id: r[1] || null };
@@ -39,6 +65,7 @@ function Ingreso() {
       ${CONFIG.PROVEEDOR_INSTITUCIONAL && html`<button type="button" onClick=${institucional}>${CONFIG.ETIQUETA_INSTITUCIONAL}</button>`}
     </form>
     <p class="ayuda" style="margin-top:1rem">¿Olvidó su contraseña? Pida al administrador que la restablezca.</p>
+    <div style="margin-top:.5rem"><${BotonInstalar} /></div>
   </div></div>`;
 }
 
@@ -103,6 +130,7 @@ function Aplicacion({ sesion }) {
   else vista = html`<${Tablero} ctx=${ctx} />`;
 
   return html`
+    <${AvisoSinRed} />
     <div class="barra-sup"><b>Proyectos SMCI</b><button aria-label="Menú" onClick=${() => setMenu(!menu)}>☰</button></div>
     <div class="marco">
       <aside class="lateral ${menu ? 'abierto' : ''}">
@@ -112,7 +140,7 @@ function Aplicacion({ sesion }) {
         <div class="pie">
           <b>${perfil.nombre || perfil.correo}</b>
           ${ROLES[perfil.rol]}${unidad ? ' · ' + unidad.sigla : ''}
-          <div style="margin-top:.6rem"><button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
+          <div style="margin-top:.6rem;display:grid;gap:.4rem"><${BotonInstalar} /><button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
       <main class="contenido">${vista}</main>
