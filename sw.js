@@ -1,11 +1,11 @@
 // Service worker: permite instalar la aplicación en PC y Android y la hace arrancar rápido.
 // Los datos nunca se guardan aquí: siempre se piden a Supabase (requiere internet).
-const VERSION = 'smci-v5';
+const VERSION = 'smci-v6';
 const BASE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/lib.js', 'js/config.js', 'js/componentes.js', 'js/datos/dedh_2026.js',
   'js/vistas/tablero.js', 'js/vistas/proyectos.js', 'js/vistas/ficha.js', 'js/vistas/miunidad.js',
-  'js/vistas/admin.js', 'js/vistas/importador.js', 'js/vistas/validaciones.js',
+  'js/vistas/admin.js', 'js/vistas/importador.js', 'js/vistas/validaciones.js', 'js/exportar.js',
   'iconos/icono-192.png', 'iconos/icono-512.png', 'iconos/icono-maskable-512.png', 'iconos/apple-touch-icon.png',
 ];
 const CDN = ['esm.sh', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];

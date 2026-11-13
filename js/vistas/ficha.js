@@ -1,5 +1,6 @@
 import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, exportarExcel, mensajeError } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
+import { ListaPropuestas } from './validaciones.js';
 
 const ESTADOS_EDITABLES = ESTADOS.filter(e => e !== 'No reportada');
 
@@ -41,7 +42,7 @@ export function Ficha({ ctx, id }) {
   const tabs = [
     ['datos', 'Datos generales'], ['tareas', `Tareas (${tareas.length})`],
     ['reprog', `Reprogramaciones (${reprog.length})`], ['historial', `Historial mensual (${reportes.length})`],
-    ['evid', `Evidencias (${evid.length})`], ['bitacora', 'Bitácora'],
+    ['evid', `Evidencias (${evid.length})`], ['propuestas', `Cambios propuestos${p.n_mod_pendientes ? ' (' + p.n_mod_pendientes + ')' : ''}`], ['bitacora', 'Bitácora'],
   ];
   return html`
     <p><a href="#/proyectos">← Proyectos</a></p>
@@ -65,7 +66,10 @@ export function Ficha({ ctx, id }) {
           <${Barra} v=${p.avance} />
           <div class="acciones" style="margin-top:.6rem">
             ${editable ? html`<${BotonReprogramar} titulo="Reprogramar entrega" actual=${p.fecha_entrega_vigente}
-                 onGuardar=${async (f, m) => { const { error } = await sb.rpc('reprogramar_proyecto', { p_id: p.id, p_fecha: f, p_motivo: m }); if (error) throw error; listo('Proyecto reprogramado.'); }} />`
+                 onGuardar=${async (f, m) => {
+                   if (perfil.rol === 'admin') { const { error } = await sb.rpc('reprogramar_proyecto', { p_id: p.id, p_fecha: f, p_motivo: m }); if (error) throw error; return listo('Proyecto reprogramado.'); }
+                   const { error } = await sb.rpc('proponer', { p_tipo: 'reprogramar_proyecto', p_proyecto: p.id, p_registro: null, p_datos: { fecha: f }, p_motivo: m });
+                   if (error) throw error; listo('Reprogramación enviada al jefe de unidad. Se aplicará cuando la valide.'); }} />`
               : html`<span class="lectura">🔒 ${perfil.rol === 'director' ? 'Su dirección tiene acceso de revisión y consulta' : 'Solo lectura'}</span>`}
             <button onClick=${() => exportarFichaPDF(h)}>Ficha PDF</button>
           </div>
@@ -82,6 +86,7 @@ export function Ficha({ ctx, id }) {
     ${tab === 'reprog' && html`<${Reprogramaciones} ...${h} />`}
     ${tab === 'historial' && html`<${Historial} ...${h} />`}
     ${tab === 'evid' && html`<${Evidencias} ...${h} />`}
+    ${tab === 'propuestas' && html`<div class="panel"><${ListaPropuestas} ctx=${ctx} proyectoId=${p.id} compacto=${true} /></div>`}
     ${tab === 'bitacora' && html`<${Bitacora} ...${h} />`}`;
 }
 
@@ -149,6 +154,21 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       if (d.avance_manual) cambios.avance = Number(d.avance);
     }
     if (d.estado === 'Cancelada' && !(d.motivo_cancelacion || '').trim()) { setOcupado(false); return fallo({ message: 'Para "Cancelada" indique el motivo.' }); }
+    if (!esAdmin) {
+      // Solo se envían los campos que cambiaron; el cambio se aplica cuando el jefe de unidad lo valida
+      const solo = {};
+      for (const [k, v] of Object.entries(cambios)) {
+        const a = p[k] === undefined ? null : p[k];
+        if (String(v ?? '') !== String(a ?? '')) solo[k] = v;
+      }
+      const datos = { cambios: solo };
+      const apoyosCambian = ap.length !== apoyos.length || ap.some(x => !apoyos.includes(x));
+      if (apoyosCambian) { datos.apoyos = ap; datos.apoyos_nombres = ap.map(nom).join(', '); }
+      if (!Object.keys(solo).length && !apoyosCambian) { setOcupado(false); return fallo({ message: 'No hay cambios que enviar.' }); }
+      const { error } = await sb.rpc('proponer', { p_tipo: 'proyecto', p_proyecto: p.id, p_registro: null, p_datos: datos, p_motivo: null });
+      setOcupado(false);
+      return error ? fallo(error) : listo('Cambios enviados al jefe de unidad. Se aplicarán cuando los valide.');
+    }
     const { error } = await sb.from('proyectos').update(cambios).eq('id', p.id).select('id').single();
     if (error) { setOcupado(false); return fallo(error); }
     // Apoyos
@@ -223,7 +243,8 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       </div>
       <p class="ayuda">Sin avance manual, el avance es el promedio ponderado del avance de las tareas según su peso.</p>
     </div>`}
-    <div class="acciones" style="margin-top:1rem"><button class="prim" disabled=${ocupado} onClick=${guardar}>${ocupado ? 'Guardando…' : 'Guardar cambios'}</button></div>
+    <div class="acciones" style="margin-top:1rem"><button class="prim" disabled=${ocupado} onClick=${guardar}>${ocupado ? 'Guardando…' : esAdmin ? 'Guardar cambios' : 'Guardar y enviar a validación'}</button>
+      ${!esAdmin && html`<span class="ayuda">Los cambios se aplican cuando el jefe de su unidad los valida.</span>`}</div>
   </div>`;
 }
 
@@ -286,7 +307,10 @@ function Tareas({ p, tareas, editable, ctx, listo, fallo }) {
           ${editable && html`<td class="nowrap"><div class="acciones">
             <button onClick=${() => setEdit(t)}>Editar</button>
             <${BotonReprogramar} chico titulo=${'Reprogramar tarea: ' + t.nombre} actual=${t.fecha_fin_vigente}
-              onGuardar=${async (f, m) => { const { error } = await sb.rpc('reprogramar_tarea', { p_id: t.id, p_fecha: f, p_motivo: m }); if (error) throw error; listo('Tarea reprogramada. La fecha vigente del proyecto y el semáforo se actualizaron si correspondía.'); }} />
+              onGuardar=${async (f, m) => {
+                if (ctx.perfil.rol === 'admin') { const { error } = await sb.rpc('reprogramar_tarea', { p_id: t.id, p_fecha: f, p_motivo: m }); if (error) throw error; return listo('Tarea reprogramada. La fecha vigente del proyecto y el semáforo se actualizaron si correspondía.'); }
+                const { error } = await sb.rpc('proponer', { p_tipo: 'reprogramar_tarea', p_proyecto: p.id, p_registro: t.id, p_datos: { fecha: f }, p_motivo: m });
+                if (error) throw error; listo('Reprogramación enviada al jefe de unidad. Se aplicará cuando la valide.'); }} />
             ${ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => borrar(t)}>Eliminar</button>`}</div></td>`}
         </tr>`)}</tbody></table>
         ${!tareas.length && html`<div class="vacio">Sin tareas. ${editable ? 'Agregue la primera.' : ''}</div>`}</div>
@@ -316,6 +340,17 @@ function EditarTarea({ t, p, ctx, onCerrar, onGuardado }) {
     };
     if (nueva) { fila.proyecto_id = p.id; fila.fecha_fin_original = d.fecha_fin_original || null; fila.fecha_fin_vigente = d.fecha_fin_original || null; }
     else if (!t.fecha_fin_original && d.fecha_fin_original) { fila.fecha_fin_original = d.fecha_fin_original; fila.fecha_fin_vigente = d.fecha_fin_original; }
+    if (ctx.perfil.rol !== 'admin') {
+      let res;
+      if (nueva) { const { proyecto_id, fecha_fin_vigente, ...datos } = fila; res = await sb.rpc('proponer', { p_tipo: 'crear_tarea', p_proyecto: p.id, p_registro: null, p_datos: datos, p_motivo: null }); }
+      else {
+        const solo = {};
+        for (const [k, v] of Object.entries(fila)) if (String(v ?? '') !== String(t[k] ?? '')) solo[k] = v;
+        if (!Object.keys(solo).length) return setErr('No hay cambios que enviar.');
+        res = await sb.rpc('proponer', { p_tipo: 'tarea', p_proyecto: p.id, p_registro: t.id, p_datos: { cambios: solo }, p_motivo: null });
+      }
+      return res.error ? setErr(mensajeError(res.error)) : onGuardado((nueva ? 'Tarea nueva enviada' : 'Cambio de la tarea enviado') + ' al jefe de unidad. Se aplicará cuando lo valide.');
+    }
     const q = nueva ? sb.from('tareas').insert(fila) : sb.from('tareas').update(fila).eq('id', t.id);
     const { error } = await q.select('id').single();
     error ? setErr(mensajeError(error)) : onGuardado(nueva ? 'Tarea creada.' : 'Tarea actualizada.');
@@ -359,7 +394,7 @@ function Reprogramaciones({ p, reprog }) {
 }
 
 // ---------------------------------------------------------------------
-function Historial({ p, reportes, editable, listo, fallo }) {
+function Historial({ p, reportes, editable, ctx, listo, fallo }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
   const serie = Object.values(reportes.reduce((a, r) => { if (r.avance !== null) { const k = r.periodo; if (!a[k] || r.ficha === 'F-2') a[k] = { periodo: k, avance: Number(r.avance) }; } return a; }, {}))
@@ -383,24 +418,29 @@ function Historial({ p, reportes, editable, listo, fallo }) {
         <td class="prewrap">${r.resultado_cuantitativo || '—'}</td><td class="prewrap">${r.proximo_paso || '—'}</td>
         <td class="prewrap" style="font-size:.8rem">${r.evidencia_texto || '—'}</td></tr>`)}</tbody></table>
       ${!reportes.length && html`<div class="vacio">Sin reportes mensuales.</div>`}</div>
-    ${abierto && html`<${NuevoReporte} p=${p} onCerrar=${() => setAbierto(false)} onGuardado=${() => { setAbierto(false); listo('Reporte registrado. El proyecto queda como actualizado este mes.'); }} />`}
+    ${abierto && html`<${NuevoReporte} p=${p} ctx=${ctx} onCerrar=${() => setAbierto(false)} onGuardado=${m => { setAbierto(false); listo(m + ' El proyecto queda como actualizado este mes.'); }} />`}
   </div>`;
 }
 
-function NuevoReporte({ p, onCerrar, onGuardado }) {
+function NuevoReporte({ p, ctx, onCerrar, onGuardado }) {
   const [d, setD] = useState({ periodo: mesActualISO(), ficha: 'F-2', avance: p.avance, estado: p.estado === 'No reportada' ? (p.estado_previo || 'En ejecución') : p.estado });
   const [err, setErr] = useState('');
   const set = k => e => setD({ ...d, [k]: e.target.value });
   const prev = (() => { const [y, m] = mesActualISO().split('-').map(Number); return m === 1 ? `${y - 1}-12-01` : `${y}-${String(m - 1).padStart(2, '0')}-01`; })();
   async function guardar() {
     if (!(d.problema_resultado || '').trim() && !(d.resultado_cuantitativo || '').trim()) return setErr('Indique al menos el avance o resultado del mes.');
-    const { error } = await sb.from('reportes_mensuales').upsert({
-      proyecto_id: p.id, periodo: d.periodo, ficha: d.ficha, avance: Number(d.avance), estado: d.estado,
+    const fila = {
+      periodo: d.periodo, ficha: d.ficha, avance: Number(d.avance), estado: d.estado,
       problema_resultado: d.problema_resultado || null, resultado_cuantitativo: d.resultado_cuantitativo || null,
       linea_base: d.linea_base || null, medida: d.medida || null, beneficiarios: d.beneficiarios || null,
       proximo_paso: d.proximo_paso || null, evidencia_texto: d.evidencia_texto || null, fuente: 'Registro en la aplicación',
-    }, { onConflict: 'proyecto_id,periodo,ficha' }).select('id').single();
-    error ? setErr(mensajeError(error)) : onGuardado();
+    };
+    if (ctx.perfil.rol !== 'admin') {
+      const { error } = await sb.rpc('proponer', { p_tipo: 'reporte', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
+      return error ? setErr(mensajeError(error)) : onGuardado('Reporte enviado al jefe de unidad. Se registrará cuando lo valide.');
+    }
+    const { error } = await sb.from('reportes_mensuales').upsert({ proyecto_id: p.id, ...fila }, { onConflict: 'proyecto_id,periodo,ficha' }).select('id').single();
+    error ? setErr(mensajeError(error)) : onGuardado('Reporte registrado.');
   }
   return html`<${Modal} titulo=${'Reporte mensual · ' + p.codigo} onCerrar=${onCerrar} acciones=${html`
       <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar reporte</button>`}>
@@ -431,9 +471,11 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
   const [subiendo, setSubiendo] = useState(false);
   async function enlace() {
     if (!nombre.trim() || !/^https?:\/\//i.test(url.trim())) return fallo({ message: 'Indique un nombre y un enlace que empiece con http:// o https://' });
-    const { error } = await sb.from('evidencias').insert({ proyecto_id: p.id, tipo: 'enlace', nombre: nombre.trim(), url: url.trim() });
+    const fila = { tipo: 'enlace', nombre: nombre.trim(), url: url.trim() };
+    const { error } = esAdmin ? await sb.from('evidencias').insert({ proyecto_id: p.id, ...fila })
+      : await sb.rpc('proponer', { p_tipo: 'evidencia', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
     if (error) return fallo(error);
-    setNombre(''); setUrl(''); listo('Evidencia agregada.');
+    setNombre(''); setUrl(''); listo(esAdmin ? 'Evidencia agregada.' : 'Evidencia enviada al jefe de unidad. Se agregará cuando la valide.');
   }
   async function archivo(e) {
     const f = e.target.files[0]; if (!f) return;
@@ -442,9 +484,11 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
     const ruta = `${p.id}/${Date.now()}_${f.name.replace(/[^\w.\-]+/g, '_')}`;
     const up = await sb.storage.from('evidencias').upload(ruta, f);
     if (up.error) { setSubiendo(false); return fallo(up.error); }
-    const { error } = await sb.from('evidencias').insert({ proyecto_id: p.id, tipo: 'archivo', nombre: f.name, storage_path: ruta });
+    const fila = { tipo: 'archivo', nombre: f.name, storage_path: ruta };
+    const { error } = esAdmin ? await sb.from('evidencias').insert({ proyecto_id: p.id, ...fila })
+      : await sb.rpc('proponer', { p_tipo: 'evidencia', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
     setSubiendo(false); e.target.value = '';
-    error ? fallo(error) : listo('Archivo subido.');
+    error ? fallo(error) : listo(esAdmin ? 'Archivo subido.' : 'Archivo enviado al jefe de unidad. Se agregará como evidencia cuando lo valide.');
   }
   async function abrir(ev) {
     if (ev.url) return window.open(ev.url, '_blank', 'noopener');

@@ -1,5 +1,14 @@
 import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, miles, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
+import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
+
+function BotonesExportarTodo({ lista, ctx, sub }) {
+  const [ocupado, setOcupado] = useState('');
+  const correr = async (tipo, fn) => { setOcupado(tipo); try { await fn(); } catch (e) { alert('No se pudo exportar: ' + e.message); } setOcupado(''); };
+  return html`
+    <button class="prim" disabled=${!!ocupado} onClick=${() => correr('x', () => exportarTodoExcel(lista, ctx))}>${ocupado === 'x' ? 'Preparando…' : '⬇ Exportar todo (Excel)'}</button>
+    <button class="prim" disabled=${!!ocupado} onClick=${() => correr('p', () => exportarTodoPDF(lista, ctx, sub))}>${ocupado === 'p' ? 'Preparando…' : '⬇ Informe completo con Gantt (PDF)'}</button>`;
+}
 
 const COLOR_ESTADO = {
   'No reportada': '#c0392b', 'No iniciada': '#8a979e', 'En ejecución': '#2b6cb0',
@@ -80,6 +89,7 @@ export function Tablero({ ctx }) {
           ? (cat.direcciones[0]?.sigla || 'mi dirección') : (cat.unidades[0]?.sigla || 'mi unidad'))}</h1>
         <p>${enMes ? `Situación reportada en ${nombreMes(f.mes)}` : 'Situación actual'} · ${r.total} proyectos · fecha de corte: día ${cat.config.dia_corte ?? 25} de cada mes</p></div>
       <div class="acciones">
+        <${BotonesExportarTodo} lista=${filtrada} ctx=${ctx} sub=${sub} />
         <button onClick=${() => exportarExcel('tablero_smci', COLUMNAS_PROYECTO, filtrada, 'Tablero')}>Exportar Excel</button>
         <button onClick=${() => exportarPDF(ctx.perfil.rol === 'admin' ? 'Reporte consolidado de la SMCI' : 'Tablero de proyectos', sub, COLUMNAS_PROYECTO, filtrada, 'tablero_smci')}>Exportar PDF</button>
       </div>

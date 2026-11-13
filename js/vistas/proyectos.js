@@ -90,6 +90,17 @@ export function NuevoProyecto({ ctx, lista, onCerrar, onCreado }) {
     if (!d.codigo.trim() || !d.nombre.trim() || !d.unidad_id) { setErr('Código, nombre y unidad son obligatorios.'); return; }
     const u = cat.unidades.find(x => x.id === d.unidad_id);
     setOcupado(true);
+    if (perfil.rol !== 'admin') {
+      const { error } = await sb.rpc('proponer', { p_tipo: 'crear_proyecto', p_proyecto: null, p_registro: null, p_motivo: null, p_datos: {
+        codigo: d.codigo.trim(), codigo_gobierno: d.codigo_gobierno.trim() || null, nombre: d.nombre.trim(),
+        descripcion: d.descripcion || null, objetivo: d.objetivo || null, unidad_id: d.unidad_id, responsable_id: d.responsable_id || null,
+        fecha_inicio: d.fecha_inicio || null, fecha_entrega_original: d.fecha_entrega_original || null, estado: d.estado,
+        por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null } });
+      setOcupado(false);
+      if (error) return setErr(mensajeError(error));
+      alert('Proyecto enviado al jefe de unidad. Aparecerá en la lista cuando lo valide.');
+      return onCerrar();
+    }
     const { data, error } = await sb.from('proyectos').insert({
       codigo: d.codigo.trim(), codigo_gobierno: d.codigo_gobierno.trim() || null, nombre: d.nombre.trim(),
       descripcion: d.descripcion || null, objetivo: d.objetivo || null,
