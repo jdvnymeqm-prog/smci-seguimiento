@@ -46,19 +46,17 @@ function Usuarios({ ctx }) {
     ${pendientes.length > 0 && html`<div class="panel" style="background:#fff8e6;border-color:#f0dc9c">
       <h3>Solicitudes pendientes (${pendientes.length})</h3>
       <p class="ayuda">Personas que crearon su cuenta. Revise que la dirección y la unidad correspondan antes de aprobar.</p>
-      <div class="tabla-env"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Pidió</th><th>Fecha</th><th></th></tr></thead>
-        <tbody>${pendientes.map(u => html`<tr><td>${u.nombre || '—'}<br/><span class="ayuda">${u.solicitud_cargo || ''}</span></td><td>${u.correo}</td>
+      <div class="tabla-env"><table><thead><tr><th></th><th>Nombre</th><th>Correo</th><th>Pidió</th><th>Fecha</th></tr></thead>
+        <tbody>${pendientes.map(u => html`<tr><td class="nowrap"><div class="acciones" style="flex-direction:column"><button class="prim" onClick=${() => aprobar(u)}>Aprobar</button>
+            <button class="peligro" onClick=${() => rechazar(u)}>Rechazar</button></div></td><td>${u.nombre || '—'}<br/><span class="ayuda">${u.solicitud_cargo || ''}</span></td><td>${u.correo}</td>
           <td>${dir(u.solicitud_direccion_id)}${u.solicitud_unidad_id ? ' · ' + uni(u.solicitud_unidad_id) : ' (dirección)'}</td>
-          <td class="nowrap">${fechaHora(u.solicitud_en)}</td>
-          <td class="nowrap"><div class="acciones"><button class="prim" onClick=${() => aprobar(u)}>Aprobar</button>
-            <button class="peligro" onClick=${() => rechazar(u)}>Rechazar</button></div></td></tr>`)}</tbody></table></div></div>`}
+          <td class="nowrap">${fechaHora(u.solicitud_en)}</td></tr>`)}</tbody></table></div></div>`}
     <div class="encabezado"><div><h3>Usuarios</h3><p>${cuentas.length} cuentas. Cuando alguien deje su cargo, desactive su cuenta y apruebe la de la persona que lo reemplaza.</p></div>
       <button class="prim" onClick=${() => setEdit({ nuevo: true, rol: 'responsable', activo: true })}>+ Nuevo usuario</button></div>
-    <div class="tabla-env"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Dirección</th><th>Unidad</th><th>Puede editar</th><th>Activo</th><th></th></tr></thead>
-      <tbody>${cuentas.map(u => html`<tr><td>${u.nombre || '—'}${u.estado_acceso === 'rechazado' ? html` <span class="etiqueta">Rechazada</span>` : ''}<br/><span class="ayuda">${u.cargo || ''}</span></td><td>${u.correo}</td><td>${ROLES[u.rol]}</td>
+    <div class="tabla-env"><table><thead><tr><th></th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Dirección</th><th>Unidad</th><th>Puede editar</th><th>Activo</th></tr></thead>
+      <tbody>${cuentas.map(u => html`<tr><td><button onClick=${() => setEdit(u)}>Editar</button></td><td>${u.nombre || '—'}${u.estado_acceso === 'rechazado' ? html` <span class="etiqueta">Rechazada</span>` : ''}<br/><span class="ayuda">${u.cargo || ''}</span></td><td>${u.correo}</td><td>${ROLES[u.rol]}</td>
         <td>${dir(u.direccion_id)}</td><td>${uni(u.unidad_id)}</td><td>${u.rol === 'director' ? (u.puede_editar ? 'Sí' : 'No') : '—'}</td>
-        <td>${u.activo ? 'Sí' : html`<b style="color:#b3261e">No</b>`}</td>
-        <td><button onClick=${() => setEdit(u)}>Editar</button></td></tr>`)}</tbody></table></div>
+        <td>${u.activo ? 'Sí' : html`<b style="color:#b3261e">No</b>`}</td></tr>`)}</tbody></table></div>
     ${edit && html`<${EditarUsuario} u=${edit} cat=${cat} onCerrar=${() => setEdit(null)} onListo=${m => { setEdit(null); setMsg({ ok: m }); cargar(); }} />`}
   </div>`;
 }
