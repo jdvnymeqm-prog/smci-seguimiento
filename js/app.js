@@ -1,6 +1,30 @@
 import { html, render, useState, useEffect, sb, ROLES, mensajeError } from './lib.js';
 import { CONFIG } from './config.js';
-import { Aviso } from './componentes.js';
+import { Aviso, Modal } from './componentes.js';
+
+// Cada usuario cambia su propia contraseña (Supabase Auth, sin pasar por el administrador)
+function CambiarClave() {
+  const [abierto, setAbierto] = useState(false);
+  const [a, setA] = useState(''); const [b, setB] = useState('');
+  const [msg, setMsg] = useState({});
+  async function guardar() {
+    if (a.length < 10) return setMsg({ err: 'La contraseña debe tener al menos 10 caracteres.' });
+    if (a !== b) return setMsg({ err: 'Las dos contraseñas no coinciden.' });
+    const { error } = await sb.auth.updateUser({ password: a });
+    if (error) return setMsg({ err: mensajeError(error) });
+    setMsg({ ok: 'Contraseña cambiada. Úsela la próxima vez que ingrese.' }); setA(''); setB('');
+  }
+  return html`<button type="button" onClick=${() => { setMsg({}); setAbierto(true); }}>🔑 Cambiar mi contraseña</button>
+    ${abierto && html`<${Modal} titulo="Cambiar mi contraseña" onCerrar=${() => setAbierto(false)} acciones=${html`
+        <button onClick=${() => setAbierto(false)}>Cerrar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
+      <${Aviso} tipo="error">${msg.err}<//><${Aviso} tipo="ok">${msg.ok}<//>
+      <div class="form">
+        <label>Nueva contraseña<input type="password" autocomplete="new-password" value=${a} onInput=${e => setA(e.target.value)} /></label>
+        <label>Repita la contraseña<input type="password" autocomplete="new-password" value=${b} onInput=${e => setB(e.target.value)} /></label>
+      </div>
+      <p class="ayuda">Mínimo 10 caracteres. Use una que no use en otros sistemas.</p>
+    <//>`}`;
+}
 import { Tablero } from './vistas/tablero.js';
 import { ListaProyectos } from './vistas/proyectos.js';
 import { Ficha } from './vistas/ficha.js';
@@ -143,6 +167,7 @@ function Aplicacion({ sesion }) {
           ${ROLES[perfil.rol]}${unidad ? ' · ' + unidad.sigla : ''}
           <div style="margin-top:.6rem;display:grid;gap:.4rem"><${BotonInstalar} />
             <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 App Android (APK)</a>
+            <${CambiarClave} />
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
