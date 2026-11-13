@@ -1,0 +1,33 @@
+# Mantiene activo el proyecto gratuito de Supabase (se pausa tras 7 días sin uso)
+# y el propio repositorio (GitHub desactiva tareas programadas tras 60 días sin actividad).
+name: Latido diario
+on:
+  schedule:
+    - cron: '17 12 * * *'   # todos los días, 08:17 hora de La Paz
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  latido:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Avisar a Supabase
+        run: |
+          for i in 1 2 3; do
+            if curl -fsS -X POST "https://awzuhwyrukxzzdbcocer.supabase.co/rest/v1/rpc/latido" \
+                 -H "apikey: sb_publishable_6eOTdoTgpWw4wOVTKy9nLg_O_WKcsu-" \
+                 -H "Content-Type: application/json" -d '{}'; then echo; echo "Latido OK"; exit 0; fi
+            sleep 60
+          done
+          echo "Supabase no respondió"; exit 1
+      - uses: actions/checkout@v4
+      - name: Mantener activo el repositorio (días 1 y 15)
+        run: |
+          d=$(date -u +%d)
+          if [ "$d" = "01" ] || [ "$d" = "15" ]; then
+            date -u +"%Y-%m-%d %H:%M UTC" > latido.txt
+            git config user.name "latido-smci"
+            git config user.email "latido-smci@users.noreply.github.com"
+            git add latido.txt
+            git commit -m "Latido $(date -u +%F)" && git push || true
+          fi
