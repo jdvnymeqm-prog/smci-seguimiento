@@ -65,7 +65,8 @@ function Ingreso() {
       ${CONFIG.PROVEEDOR_INSTITUCIONAL && html`<button type="button" onClick=${institucional}>${CONFIG.ETIQUETA_INSTITUCIONAL}</button>`}
     </form>
     <p class="ayuda" style="margin-top:1rem">¿Olvidó su contraseña? Pida al administrador que la restablezca.</p>
-    <div style="margin-top:.5rem"><${BotonInstalar} /></div>
+    <div style="margin-top:.5rem;display:grid;gap:.4rem"><${BotonInstalar} />
+      <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 Descargar para Android (APK)</a></div>
   </div></div>`;
 }
 
@@ -140,7 +141,9 @@ function Aplicacion({ sesion }) {
         <div class="pie">
           <b>${perfil.nombre || perfil.correo}</b>
           ${ROLES[perfil.rol]}${unidad ? ' · ' + unidad.sigla : ''}
-          <div style="margin-top:.6rem;display:grid;gap:.4rem"><${BotonInstalar} /><button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
+          <div style="margin-top:.6rem;display:grid;gap:.4rem"><${BotonInstalar} />
+            <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 App Android (APK)</a>
+            <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
       <main class="contenido">${vista}</main>
