@@ -62,7 +62,75 @@ function ruta() {
   return { vista: r[0] || 'tablero', id: r[1] || null };
 }
 
+// Autorregistro: la persona crea su cuenta y queda pendiente de aprobación del administrador
+function Registro({ onVolver }) {
+  const [op, setOp] = useState(null);
+  const [d, setD] = useState({ nombre: '', cargo: '', correo: '', direccion_id: '', unidad_id: '', clave: '', clave2: '' });
+  const [err, setErr] = useState('');
+  const [listo, setListo] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  useEffect(() => { sb.rpc('opciones_registro').then(({ data }) => setOp(data || { direcciones: [], unidades: [] })); }, []);
+  const set = k => e => setD({ ...d, [k]: e.target.value, ...(k === 'direccion_id' ? { unidad_id: '' } : {}) });
+  async function enviar(e) {
+    e.preventDefault(); setErr('');
+    if (!/^[^@\s]+@lapaz\.bo$/i.test(d.correo.trim())) return setErr('Use su correo institucional @lapaz.bo.');
+    if (d.clave.length < 10) return setErr('La contraseña debe tener al menos 10 caracteres.');
+    if (d.clave !== d.clave2) return setErr('Las dos contraseñas no coinciden.');
+    setOcupado(true);
+    const { data, error } = await sb.functions.invoke('registro', { body: {
+      nombre: d.nombre, cargo: d.cargo, correo: d.correo.trim(), clave: d.clave,
+      direccion_id: d.direccion_id, unidad_id: d.unidad_id || null } });
+    setOcupado(false);
+    let m = data?.error;
+    if (error && !m) { try { m = (await error.context.json()).error; } catch { m = mensajeError(error); } }
+    if (m) return setErr(m);
+    setListo(true);
+  }
+  if (listo) return html`<div class="ingreso"><div class="caja">
+    <h1>Solicitud enviada</h1>
+    <p>Su cuenta fue creada y está <b>pendiente de aprobación</b>. El administrador de la SMCI revisará su solicitud y le asignará su dirección o unidad.</p>
+    <p>Cuando esté aprobada, ingrese con su correo y la contraseña que acaba de definir.</p>
+    <button class="prim" onClick=${onVolver}>Volver al ingreso</button></div></div>`;
+  const unidades = (op?.unidades || []).filter(u => u.direccion_id === d.direccion_id);
+  return html`<div class="ingreso"><div class="caja">
+    <small style="color:#5b6b74">Seguimiento de Proyectos SMCI</small>
+    <h1>Crear mi cuenta</h1>
+    <p>Cada persona usa su propia cuenta. El administrador aprueba la solicitud antes de que pueda ver o registrar información.</p>
+    <${Aviso} tipo="error">${err}<//>
+    <form onSubmit=${enviar}>
+      <label>Nombre completo<input required value=${d.nombre} onInput=${set('nombre')} /></label>
+      <label>Cargo<input value=${d.cargo} onInput=${set('cargo')} placeholder="p. ej. Técnico de la UITD" /></label>
+      <label>Correo institucional<input type="email" required autocomplete="username" value=${d.correo} onInput=${set('correo')} placeholder="nombre.apellido@lapaz.bo" /></label>
+      <label>Dirección<select required value=${d.direccion_id} onChange=${set('direccion_id')}>
+        <option value="">Elegir…</option>${(op?.direcciones || []).map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
+      <label>Unidad<select value=${d.unidad_id} onChange=${set('unidad_id')} disabled=${!d.direccion_id}>
+        <option value="">Ninguna (personal de la dirección)</option>${unidades.map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
+      <label>Contraseña (mínimo 10 caracteres)<input type="password" required autocomplete="new-password" value=${d.clave} onInput=${set('clave')} /></label>
+      <label>Repita la contraseña<input type="password" required autocomplete="new-password" value=${d.clave2} onInput=${set('clave2')} /></label>
+      <button class="prim" disabled=${ocupado}>${ocupado ? 'Enviando…' : 'Crear mi cuenta'}</button>
+      <button type="button" onClick=${onVolver}>Ya tengo cuenta: ingresar</button>
+    </form>
+  </div></div>`;
+}
+
+// Pantalla para cuentas que aún no fueron aprobadas o fueron rechazadas
+function CuentaPendiente({ perfil }) {
+  const rechazada = perfil.estado_acceso === 'rechazado';
+  return html`<div class="ingreso"><div class="caja">
+    <h1>${rechazada ? 'Solicitud no aprobada' : 'Cuenta pendiente de aprobación'}</h1>
+    <p>${rechazada
+      ? 'El administrador no aprobó esta cuenta. Si cree que es un error, comuníquese con la Secretaría Municipal de Ciudad Inteligente.'
+      : html`Hola, <b>${perfil.nombre || perfil.correo}</b>. Su cuenta ya existe, pero el administrador todavía debe aprobarla y asignarle su dirección o unidad. Vuelva a ingresar más tarde.`}</p>
+    <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div></div>`;
+}
+
 function Ingreso() {
+  const [registro, setRegistro] = useState(false);
+  if (registro) return html`<${Registro} onVolver=${() => setRegistro(false)} />`;
+  return html`<${IngresoForm} onRegistro=${() => setRegistro(true)} />`;
+}
+
+function IngresoForm({ onRegistro }) {
   const [correo, setCorreo] = useState('');
   const [clave, setClave] = useState('');
   const [err, setErr] = useState('');
@@ -88,6 +156,10 @@ function Ingreso() {
       <button class="prim" disabled=${ocupado}>${ocupado ? 'Ingresando…' : 'Ingresar'}</button>
       ${CONFIG.PROVEEDOR_INSTITUCIONAL && html`<button type="button" onClick=${institucional}>${CONFIG.ETIQUETA_INSTITUCIONAL}</button>`}
     </form>
+    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--borde)">
+      <p class="ayuda" style="margin:0 0 .5rem">¿Primera vez? Cada persona crea su propia cuenta con su correo @lapaz.bo.</p>
+      <button type="button" style="width:100%;justify-content:center" onClick=${onRegistro}>Crear mi cuenta</button>
+    </div>
     <p class="ayuda" style="margin-top:1rem">¿Olvidó su contraseña? Pida al administrador que la restablezca.</p>
     <div style="margin-top:.5rem;display:grid;gap:.4rem"><${BotonInstalar} />
       <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 Descargar para Android (APK)</a></div>
@@ -111,6 +183,7 @@ function Aplicacion({ sesion }) {
     ]);
     const e = p.error || d.error || u.error || pe.error || c.error;
     if (e) { setErr(mensajeError(e)); return; }
+    if (p.data && p.data.estado_acceso && p.data.estado_acceso !== 'aprobado') { setPerfil(p.data); setCat('pendiente'); return; }
     if (!p.data.activo) { setErr('Su usuario está desactivado. Consulte con el administrador.'); return; }
     const config = Object.fromEntries(c.data.map(x => [x.clave, x.valor]));
     const ordenDir = Object.fromEntries(d.data.map(x => [x.id, x.orden]));
@@ -129,6 +202,7 @@ function Aplicacion({ sesion }) {
 
   if (err) return html`<div class="contenido"><${Aviso} tipo="error">${err}<//><button onClick=${() => sb.auth.signOut()}>Salir</button></div>`;
   if (!perfil || !cat) return html`<div class="cargando-pagina">Cargando…</div>`;
+  if (cat === 'pendiente') return html`<${CuentaPendiente} perfil=${perfil} />`;
 
   // Selectores: solo direcciones/unidades activas y, salvo el administrador, solo las propias
   const esAdmin = perfil.rol === 'admin';

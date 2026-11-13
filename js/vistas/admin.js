@@ -27,12 +27,35 @@ function Usuarios({ ctx }) {
   if (!lista) return html`<div class="vacio">Cargando…</div>`;
   const uni = id => (cat.todasUnidades.find(u => u.id === id) || {}).sigla || '—';
   const dir = id => (cat.todasDirecciones.find(u => u.id === id) || {}).sigla || '—';
+  const pendientes = lista.filter(u => u.estado_acceso === 'pendiente');
+  const cuentas = lista.filter(u => u.estado_acceso !== 'pendiente');
+  function aprobar(u) {
+    const sigla = dir(u.solicitud_direccion_id);
+    setEdit({ ...u, aprobar: true, activo: true,
+      rol: u.solicitud_unidad_id ? 'responsable' : 'director',
+      unidad_id: u.solicitud_unidad_id, direccion_id: u.solicitud_direccion_id,
+      cargo: u.cargo || u.solicitud_cargo, puede_editar: sigla === 'DEDH' });
+  }
+  async function rechazar(u) {
+    if (!confirm(`¿Rechazar la solicitud de ${u.nombre || u.correo}? No podrá ingresar.`)) return;
+    const { error } = await sb.from('perfiles').update({ estado_acceso: 'rechazado', activo: false }).eq('id', u.id).select('id').single();
+    error ? setMsg({ err: mensajeError(error) }) : (setMsg({ ok: 'Solicitud rechazada.' }), cargar());
+  }
   return html`<div class="panel">
     <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
-    <div class="encabezado"><div><h3>Usuarios</h3><p>${lista.length} usuarios. Jefes y responsables editan solo su unidad; directores ven su dirección y editan si se habilita.</p></div>
+    ${pendientes.length > 0 && html`<div class="panel" style="background:#fff8e6;border-color:#f0dc9c">
+      <h3>Solicitudes pendientes (${pendientes.length})</h3>
+      <p class="ayuda">Personas que crearon su cuenta. Revise que la dirección y la unidad correspondan antes de aprobar.</p>
+      <div class="tabla-env"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Pidió</th><th>Fecha</th><th></th></tr></thead>
+        <tbody>${pendientes.map(u => html`<tr><td>${u.nombre || '—'}<br/><span class="ayuda">${u.solicitud_cargo || ''}</span></td><td>${u.correo}</td>
+          <td>${dir(u.solicitud_direccion_id)}${u.solicitud_unidad_id ? ' · ' + uni(u.solicitud_unidad_id) : ' (dirección)'}</td>
+          <td class="nowrap">${fechaHora(u.solicitud_en)}</td>
+          <td class="nowrap"><div class="acciones"><button class="prim" onClick=${() => aprobar(u)}>Aprobar</button>
+            <button class="peligro" onClick=${() => rechazar(u)}>Rechazar</button></div></td></tr>`)}</tbody></table></div></div>`}
+    <div class="encabezado"><div><h3>Usuarios</h3><p>${cuentas.length} cuentas. Cuando alguien deje su cargo, desactive su cuenta y apruebe la de la persona que lo reemplaza.</p></div>
       <button class="prim" onClick=${() => setEdit({ nuevo: true, rol: 'responsable', activo: true })}>+ Nuevo usuario</button></div>
     <div class="tabla-env"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Dirección</th><th>Unidad</th><th>Puede editar</th><th>Activo</th><th></th></tr></thead>
-      <tbody>${lista.map(u => html`<tr><td>${u.nombre || '—'}<br/><span class="ayuda">${u.cargo || ''}</span></td><td>${u.correo}</td><td>${ROLES[u.rol]}</td>
+      <tbody>${cuentas.map(u => html`<tr><td>${u.nombre || '—'}${u.estado_acceso === 'rechazado' ? html` <span class="etiqueta">Rechazada</span>` : ''}<br/><span class="ayuda">${u.cargo || ''}</span></td><td>${u.correo}</td><td>${ROLES[u.rol]}</td>
         <td>${dir(u.direccion_id)}</td><td>${uni(u.unidad_id)}</td><td>${u.rol === 'director' ? (u.puede_editar ? 'Sí' : 'No') : '—'}</td>
         <td>${u.activo ? 'Sí' : html`<b style="color:#b3261e">No</b>`}</td>
         <td><button onClick=${() => setEdit(u)}>Editar</button></td></tr>`)}</tbody></table></div>
@@ -58,6 +81,8 @@ function EditarUsuario({ u, cat, onCerrar, onListo }) {
       direccion_id: necesitaUnidad ? unidad?.direccion_id : (d.rol === 'director' ? d.direccion_id : (d.direccion_id || null)),
       puede_editar: d.rol === 'director' ? !!d.puede_editar : false, activo: !!d.activo,
     };
+    if (u.aprobar) datos.estado_acceso = 'aprobado';
+    if (d.rol === 'consulta' && u.aprobar) return setErr('Elija el rol de la persona antes de aprobar.');
     if (u.nuevo) {
       if (!d.correo || clave.length < 10) return setErr('Correo y contraseña inicial (mínimo 10 caracteres) son obligatorios.');
       const { data, error } = await sb.functions.invoke('admin-usuarios', { body: { accion: 'crear', correo: d.correo.trim(), clave, ...datos } });
@@ -73,7 +98,7 @@ function EditarUsuario({ u, cat, onCerrar, onListo }) {
     }
     onListo('Usuario actualizado.');
   }
-  return html`<${Modal} titulo=${u.nuevo ? 'Nuevo usuario' : 'Editar usuario'} onCerrar=${onCerrar} acciones=${html`
+  return html`<${Modal} titulo=${u.nuevo ? 'Nuevo usuario' : u.aprobar ? 'Aprobar solicitud' : 'Editar usuario'} onCerrar=${onCerrar} acciones=${html`
       <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
     <${Aviso} tipo="error">${err}<//>
     <div class="form">
