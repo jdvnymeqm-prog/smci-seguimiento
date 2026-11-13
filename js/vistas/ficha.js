@@ -72,6 +72,9 @@ export function Ficha({ ctx, id }) {
         </div>
       </div>
     </div>
+    ${p.n_mod_pendientes > 0 && html`<${Aviso} tipo="atencion">
+      ${p.n_mod_pendientes} ${p.n_mod_pendientes === 1 ? 'modificación guardada está' : 'modificaciones guardadas están'} pendiente${p.n_mod_pendientes === 1 ? '' : 's'} de validación por el jefe de la unidad.
+      ${(perfil.rol === 'jefe' || perfil.rol === 'admin') && html` <a href="#/validaciones">Ir a validar</a>`}<//>`}
     <${Aviso} tipo="error">${err}<//><${Aviso} tipo="ok">${ok}<//>
     <div class="tabs" role="tablist">${tabs.map(([k, t]) => html`<button role="tab" class=${tab === k ? 'activo' : ''} onClick=${() => setTab(k)}>${t}</button>`)}</div>
     ${tab === 'datos' && html`<${Datos} ...${h} />`}

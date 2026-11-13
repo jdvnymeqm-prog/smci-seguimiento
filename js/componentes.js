@@ -162,4 +162,5 @@ export const COLUMNAS_PROYECTO = [
   { titulo: 'N.º reprog.', excel: p => p.n_reprogramaciones, pdf: p => String(p.n_reprogramaciones), ancho: 8 },
   { titulo: 'Semáforo', valor: p => ({ verde: 'Verde', amarillo: 'Amarillo', rojo: 'Rojo', gris: 'Cancelado', sin_fecha: 'Sin fecha' })[p.semaforo], ancho: 10 },
   { titulo: 'Qué falta', valor: queFaltaTexto, ancho: 60 },
+  { titulo: 'Pendientes de validación', excel: p => p.n_mod_pendientes || 0, pdf: p => p.n_mod_pendientes ? String(p.n_mod_pendientes) : 'Al día', ancho: 12 },
 ];

@@ -30,6 +30,7 @@ import { ListaProyectos } from './vistas/proyectos.js';
 import { Ficha } from './vistas/ficha.js';
 import { MiUnidad } from './vistas/miunidad.js';
 import { Admin } from './vistas/admin.js';
+import { Validaciones } from './vistas/validaciones.js';
 
 // Botón para instalar la aplicación en PC o Android (solo cuando el navegador lo permite)
 function BotonInstalar({ claro }) {
@@ -76,10 +77,11 @@ function Registro({ onVolver }) {
     if (!/^[^@\s]+@lapaz\.bo$/i.test(d.correo.trim())) return setErr('Use su correo institucional @lapaz.bo.');
     if (d.clave.length < 10) return setErr('La contraseña debe tener al menos 10 caracteres.');
     if (d.clave !== d.clave2) return setErr('Las dos contraseñas no coinciden.');
+    if (!d.unidad_id) return setErr('Elija la unidad a la que pertenece.');
     setOcupado(true);
     const { data, error } = await sb.functions.invoke('registro', { body: {
       nombre: d.nombre, cargo: d.cargo, correo: d.correo.trim(), clave: d.clave,
-      direccion_id: d.direccion_id, unidad_id: d.unidad_id || null } });
+      direccion_id: d.direccion_id, unidad_id: d.unidad_id } });
     setOcupado(false);
     let m = data?.error;
     if (error && !m) { try { m = (await error.context.json()).error; } catch { m = mensajeError(error); } }
@@ -103,8 +105,8 @@ function Registro({ onVolver }) {
       <label>Correo institucional<input type="email" required autocomplete="username" value=${d.correo} onInput=${set('correo')} placeholder="nombre.apellido@lapaz.bo" /></label>
       <label>Dirección<select required value=${d.direccion_id} onChange=${set('direccion_id')}>
         <option value="">Elegir…</option>${(op?.direcciones || []).map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
-      <label>Unidad<select value=${d.unidad_id} onChange=${set('unidad_id')} disabled=${!d.direccion_id}>
-        <option value="">Ninguna (personal de la dirección)</option>${unidades.map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
+      <label>Unidad<select required value=${d.unidad_id} onChange=${set('unidad_id')} disabled=${!d.direccion_id}>
+        <option value="">Elegir…</option>${unidades.map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
       <label>Contraseña (mínimo 10 caracteres)<input type="password" required autocomplete="new-password" value=${d.clave} onInput=${set('clave')} /></label>
       <label>Repita la contraseña<input type="password" required autocomplete="new-password" value=${d.clave2} onInput=${set('clave2')} /></label>
       <button class="prim" disabled=${ocupado}>${ocupado ? 'Enviando…' : 'Crear mi cuenta'}</button>
@@ -217,6 +219,7 @@ function Aplicacion({ sesion }) {
     ['tablero', perfil.rol === 'admin' ? 'Consolidado SMCI' : 'Tablero'],
     ['proyectos', 'Proyectos'],
     ...(perfil.unidad_id || perfil.rol === 'director' ? [['mi-unidad', perfil.rol === 'director' ? 'Mi dirección' : 'Mi unidad']] : []),
+    ...(perfil.rol === 'admin' || perfil.rol === 'jefe' ? [['validaciones', 'Validaciones']] : []),
     ...(perfil.rol === 'admin' ? [['admin', 'Administración']] : []),
   ];
   const activo = r.vista === 'proyecto' ? 'proyectos' : r.vista;
@@ -226,6 +229,7 @@ function Aplicacion({ sesion }) {
   else if (r.vista === 'proyecto') vista = html`<${Ficha} ctx=${ctx} id=${r.id} key=${r.id} />`;
   else if (r.vista === 'mi-unidad') vista = html`<${MiUnidad} ctx=${ctx} />`;
   else if (r.vista === 'admin' && perfil.rol === 'admin') vista = html`<${Admin} ctx=${ctx} />`;
+  else if (r.vista === 'validaciones' && (perfil.rol === 'admin' || perfil.rol === 'jefe')) vista = html`<${Validaciones} ctx=${ctx} />`;
   else vista = html`<${Tablero} ctx=${ctx} />`;
 
   return html`
