@@ -1,5 +1,16 @@
 import { html, useState, useEffect, ESTADOS, ESTADO_CLASE, fecha, pct, norm, mesActualISO, nombreMes, aISO, miles, leerMonto } from './lib.js';
 
+// Campo de contraseña con botón para mostrarla u ocultarla
+export function ClaveInput({ value, onInput, autocomplete, required }) {
+  const [ver, setVer] = useState(false);
+  return html`<span class="clave-campo">
+    <input type=${ver ? 'text' : 'password'} autocomplete=${autocomplete} required=${required} value=${value} onInput=${onInput} />
+    <button type="button" class="ver-clave" onClick=${() => setVer(!ver)}
+      aria-label=${ver ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed=${ver}
+      title=${ver ? 'Ocultar contraseña' : 'Mostrar contraseña'}>${ver ? '🙈' : '👁'}</button>
+  </span>`;
+}
+
 // Campo de fecha con formato fijo dd/mm/aaaa (no depende del idioma del navegador)
 export function FechaInput({ valor, onCambio, disabled, id }) {
   const [t, setT] = useState(valor ? fecha(valor) : '');
