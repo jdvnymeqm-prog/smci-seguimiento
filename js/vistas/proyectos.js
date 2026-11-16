@@ -50,7 +50,7 @@ export function ListaProyectos({ ctx }) {
           <tr class="grupo-uni"><td colspan="10">${x.u.sigla} · ${x.u.nombre} <span class="pill">${x.ps.length}</span></td></tr>
           ${x.ps.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
             <td class="nowrap"><b>${p.codigo}</b>${p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}</td>
-            <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Por validar</span>` : ''}
+            <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
               ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}</td>
             <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
             <td><${Estado} e=${p.estado} /></td>

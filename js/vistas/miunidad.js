@@ -74,5 +74,5 @@ export function MiUnidad({ ctx }) {
           <td><${Barra} v=${t.avance} /></td><td><${Estado} e=${t.estado} /></td></tr>`)}</tbody></table></div>`
         : html`<div class="vacio">Sin tareas por vencer.</div>`}</div>
     <div class="panel"><h2>Vencidos sin concluir</h2><${Lista} items=${vencidos} vacio="Ninguno." /></div>
-    ${porValidar.length > 0 && html`<div class="panel"><h2>Por validar</h2><${Lista} items=${porValidar} vacio="" extra=${{ titulo: 'Motivo', valor: p => p.por_validar_motivo }} /></div>`}`;
+    ${porValidar.length > 0 && html`<div class="panel"><h2>Datos por revisar (carga inicial)</h2><${Lista} items=${porValidar} vacio="" extra=${{ titulo: 'Motivo', valor: p => p.por_validar_motivo }} /></div>`}`;
 }

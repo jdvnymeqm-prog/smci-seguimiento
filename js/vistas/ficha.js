@@ -52,7 +52,7 @@ export function Ficha({ ctx, id }) {
           <div class="acciones" style="margin-bottom:.3rem"><span class="pill">${p.codigo}</span>
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
             <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />
-            ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Por validar</span>`}</div>
+            ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>`}</div>
           <h1>${p.nombre}</h1>
           <div class="meta">
             <span>${p.direccion_sigla} · ${p.unidad_sigla || 'Unidad por validar'}</span>
@@ -231,7 +231,7 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       <div class="ancho"><small class="ayuda"><b>Qué falta para completarlo</b> (se arma solo con las tareas pendientes)</small>
         <${QueFalta} items=${p.que_falta} max=${50} /></div>
       <label class="ancho">Observaciones sobre lo que falta<textarea value=${d.observaciones_falta || ''} onInput=${set('observaciones_falta')} /></label>
-      <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.por_validar} onChange=${set('por_validar')} /> Marcado «Por validar»</label>
+      <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.por_validar} onChange=${set('por_validar')} /> Marcado «Datos por revisar» (quite la marca cuando esté corregido)</label>
       ${d.por_validar && html`<label>Motivo<input value=${d.por_validar_motivo || ''} onInput=${set('por_validar_motivo')} /></label>`}
     </div>
     ${esAdmin && html`<div class="panel" style="margin-top:1rem;background:#fbfcfc">
