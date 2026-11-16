@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, exportarExcel, mensajeError } from '../lib.js';
+import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
 import { ListaPropuestas } from './validaciones.js';
 
@@ -26,6 +26,7 @@ export function Ficha({ ctx, id }) {
       sb.from('proyecto_apoyos').select('persona_id').eq('proyecto_id', id),
     ]);
     const er = a.error || b.error || c.error || d.error || e.error || f.error;
+    if (a.error && a.error.code === 'PGRST116') { setErr('Este proyecto no existe o no pertenece a su unidad o dirección.'); return; }
     if (er) { setErr(mensajeError(er)); return; }
     setP(a.data); setTareas(b.data); setReprog(c.data); setReportes(d.data); setEvid(e.data);
     setApoyos(f.data.map(x => x.persona_id));
@@ -36,7 +37,8 @@ export function Ficha({ ctx, id }) {
 
   if (err && !p) return html`<${Aviso} tipo="error">${err}<//>`;
   if (!p) return html`<div class="vacio">Cargando ficha…</div>`;
-  const editable = puedeEditar(perfil, p.unidad_id, p.direccion_id);
+  // Con el bloqueo general activo, solo el administrador edita
+  const editable = puedeEditar(perfil, p.unidad_id, p.direccion_id) && !bloqueoCambios(cat, perfil);
   const h = { p, tareas, reprog, reportes, evid, apoyos, editable, ctx, listo, fallo, recargar: cargar };
 
   const tabs = [
@@ -70,7 +72,7 @@ export function Ficha({ ctx, id }) {
                    if (perfil.rol === 'admin') { const { error } = await sb.rpc('reprogramar_proyecto', { p_id: p.id, p_fecha: f, p_motivo: m }); if (error) throw error; return listo('Proyecto reprogramado.'); }
                    const { error } = await sb.rpc('proponer', { p_tipo: 'reprogramar_proyecto', p_proyecto: p.id, p_registro: null, p_datos: { fecha: f }, p_motivo: m });
                    if (error) throw error; listo('Reprogramación enviada a validación. Se aplicará cuando la valide.'); }} />`
-              : html`<span class="lectura">🔒 ${perfil.rol === 'director' ? 'Su dirección tiene acceso de revisión y consulta' : 'Solo lectura'}</span>`}
+              : html`<span class="lectura">🔒 ${bloqueoCambios(cat, perfil) ? 'Cambios bloqueados por el administrador' : perfil.rol === 'director' ? 'Su dirección tiene acceso de revisión y consulta' : 'Solo lectura'}</span>`}
             <button onClick=${() => exportarFichaPDF(h)}>Ficha PDF</button>
           </div>
         </div>

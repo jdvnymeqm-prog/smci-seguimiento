@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, miles, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
+import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
 import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
 

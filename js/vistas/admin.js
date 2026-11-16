@@ -1,4 +1,4 @@
-import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, hoyISO, exportarExcel, mensajeError } from '../lib.js';
+import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, mensajeError } from '../lib.js';
 import { Aviso, Modal, Estado, FechaInput } from '../componentes.js';
 import { Importador } from './importador.js';
 

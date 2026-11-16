@@ -1,6 +1,6 @@
 // Service worker: permite instalar la aplicación en PC y Android y la hace arrancar rápido.
 // Los datos nunca se guardan aquí: siempre se piden a Supabase (requiere internet).
-const VERSION = 'smci-v10';
+const VERSION = 'smci-v11';
 const BASE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/lib.js', 'js/config.js', 'js/componentes.js', 'js/datos/dedh_2026.js',

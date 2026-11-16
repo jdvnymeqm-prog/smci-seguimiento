@@ -1,7 +1,7 @@
 // Propuestas de cambio: las unidades proponen, el jefe de unidad valida (se aplica) o rechaza.
 // Lo validado queda cerrado; nueva información sobre el mismo dato después de 72 h,
 // o antes con un permiso de corrección del administrador.
-import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar } from '../lib.js';
+import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar, bloqueoCambios } from '../lib.js';
 import { Aviso, Modal } from '../componentes.js';
 
 export const TIPOS = {
@@ -50,7 +50,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   const [texto, setTexto] = useState('');
   const [msg, setMsg] = useState({});
   const esAdmin = perfil.rol === 'admin';
-  const puedeRevisar = m => puedeValidar(perfil, cat.todasUnidades.find(u => u.id === m.unidad_id));
+  const puedeRevisar = m => !bloqueoCambios(cat, perfil) && puedeValidar(perfil, cat.todasUnidades.find(u => u.id === m.unidad_id));
 
   const cargar = () => {
     let q = sb.from('propuestas').select('*, proyectos(codigo,nombre)').eq('estado', vista);

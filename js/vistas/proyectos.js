@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, mesActualISO } from '../lib.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
@@ -17,8 +17,8 @@ export function ListaProyectos({ ctx }) {
   useEffect(() => { cargarReportesMes(f.mes).then(setRepMes); }, [f.mes]);
 
   const filtrada = useMemo(() => lista ? aplicarFiltros(lista, f, repMes) : [], [lista, f, repMes]);
-  const puedeCrear = perfil.rol === 'admin' || ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.unidad_id)
-    || (perfil.rol === 'director' && perfil.puede_editar);
+  const puedeCrear = !bloqueoCambios(cat, perfil) && (perfil.rol === 'admin' || ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.unidad_id)
+    || (perfil.rol === 'director' && perfil.puede_editar));
 
   if (err) return html`<${Aviso} tipo="error">${err}<//>`;
   if (!lista) return html`<div class="vacio">Cargando proyectos…</div>`;

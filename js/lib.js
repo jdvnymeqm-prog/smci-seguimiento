@@ -117,10 +117,17 @@ export function puedeEditar(perfil, unidadId, direccionId) {
 export function mensajeError(e) {
   if (!e) return '';
   const m = e.message || String(e);
-  // PGRST116: la base no devolvió la fila (RLS la filtró) → sin permiso
-  if (/row-level security|42501|permission denied/i.test(m) || e.code === '42501' || e.code === 'PGRST116')
+  // Los mensajes propios del sistema (en español, p. ej. el bloqueo de cambios) se muestran tal cual.
+  // Solo se traducen los mensajes técnicos de la base. PGRST116: la base no devolvió la fila (RLS la filtró).
+  if (/row-level security|permission denied/i.test(m) || e.code === 'PGRST116')
     return 'No tiene permiso para modificar este registro. Solo la unidad dueña y el administrador pueden hacerlo.';
   if (/Invalid login credentials/i.test(m)) return 'Correo o contraseña incorrectos.';
+  if (e.code === 'same_password' || /should be different from the old password/i.test(m))
+    return 'La nueva contraseña debe ser distinta de la actual.';
+  if (e.code === 'weak_password' || /password should|weak password/i.test(m))
+    return 'La contraseña es demasiado débil. Use al menos 10 caracteres, combinando letras y números.';
+  if (/rate limit|too many requests/i.test(m)) return 'Demasiados intentos. Espere unos minutos y vuelva a intentar.';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sin conexión con el servidor. Revise su internet e intente de nuevo.';
   return m;
 }
 
