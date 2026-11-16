@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, mesActualISO } from '../lib.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
@@ -17,8 +17,8 @@ export function ListaProyectos({ ctx }) {
   useEffect(() => { cargarReportesMes(f.mes).then(setRepMes); }, [f.mes]);
 
   const filtrada = useMemo(() => lista ? aplicarFiltros(lista, f, repMes) : [], [lista, f, repMes]);
-  const puedeCrear = perfil.rol === 'admin' || ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.unidad_id)
-    || (perfil.rol === 'director' && perfil.puede_editar);
+  const puedeCrear = !bloqueoCambios(cat, perfil) && (perfil.rol === 'admin' || ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.unidad_id)
+    || (perfil.rol === 'director' && perfil.puede_editar));
 
   if (err) return html`<${Aviso} tipo="error">${err}<//>`;
   if (!lista) return html`<div class="vacio">Cargando proyectos…</div>`;
@@ -50,7 +50,7 @@ export function ListaProyectos({ ctx }) {
           <tr class="grupo-uni"><td colspan="10">${x.u.sigla} · ${x.u.nombre} <span class="pill">${x.ps.length}</span></td></tr>
           ${x.ps.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
             <td class="nowrap"><b>${p.codigo}</b>${p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}</td>
-            <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Por validar</span>` : ''}
+            <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
               ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}</td>
             <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
             <td><${Estado} e=${p.estado} /></td>
@@ -98,7 +98,7 @@ export function NuevoProyecto({ ctx, lista, onCerrar, onCreado }) {
         por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null } });
       setOcupado(false);
       if (error) return setErr(mensajeError(error));
-      alert('Proyecto enviado al jefe de unidad. Aparecerá en la lista cuando lo valide.');
+      alert('Proyecto enviado a validación. Aparecerá en la lista cuando lo valide.');
       return onCerrar();
     }
     const { data, error } = await sb.from('proyectos').insert({

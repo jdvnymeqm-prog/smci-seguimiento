@@ -58,8 +58,8 @@ export function MiUnidad({ ctx }) {
       <div class="kpi ${vencen.length ? 'aviso' : ''}"><div class="v">${vencen.length}</div><div class="t">Vencen en 15 días</div></div>
       <div class="kpi ${vencidos.length ? 'alerta' : ''}"><div class="v">${vencidos.length}</div><div class="t">Vencidos</div></div>
       <div class="kpi ${tareas.length ? 'aviso' : ''}"><div class="v">${tareas.length}</div><div class="t">Tareas que vencen pronto o vencidas</div></div>
-      <div class="kpi ${ps.some(p => p.n_mod_pendientes) ? 'aviso' : ''}" style=${perfil.rol === 'jefe' ? 'cursor:pointer' : ''} onClick=${() => perfil.rol === 'jefe' && (location.hash = '#/validaciones')}>
-        <div class="v">${ps.reduce((a, p) => a + (p.n_mod_pendientes || 0), 0)}</div><div class="t">Modificaciones por validar${perfil.rol === 'jefe' ? ' (clic para validar)' : ''}</div></div>
+      <div class="kpi ${ps.some(p => p.n_mod_pendientes) ? 'aviso' : ''}" style=${['jefe', 'director'].includes(perfil.rol) ? 'cursor:pointer' : ''} onClick=${() => ['jefe', 'director'].includes(perfil.rol) && (location.hash = '#/validaciones')}>
+        <div class="v">${ps.reduce((a, p) => a + (p.n_mod_pendientes || 0), 0)}</div><div class="t">Modificaciones por validar${['jefe', 'director'].includes(perfil.rol) ? ' (clic para ver)' : ''}</div></div>
     </div>
     <div class="panel"><h2>Lo que debo actualizar este mes</h2>
       <p class="ayuda">Actualice cada proyecto (datos, tareas o reporte mensual) antes del ${fecha(fechaCorte)}. Si no, el sistema lo marcará «No reportada».</p>
@@ -74,5 +74,5 @@ export function MiUnidad({ ctx }) {
           <td><${Barra} v=${t.avance} /></td><td><${Estado} e=${t.estado} /></td></tr>`)}</tbody></table></div>`
         : html`<div class="vacio">Sin tareas por vencer.</div>`}</div>
     <div class="panel"><h2>Vencidos sin concluir</h2><${Lista} items=${vencidos} vacio="Ninguno." /></div>
-    ${porValidar.length > 0 && html`<div class="panel"><h2>Por validar</h2><${Lista} items=${porValidar} vacio="" extra=${{ titulo: 'Motivo', valor: p => p.por_validar_motivo }} /></div>`}`;
+    ${porValidar.length > 0 && html`<div class="panel"><h2>Datos por revisar (carga inicial)</h2><${Lista} items=${porValidar} vacio="" extra=${{ titulo: 'Motivo', valor: p => p.por_validar_motivo }} /></div>`}`;
 }

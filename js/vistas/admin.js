@@ -1,16 +1,17 @@
-import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, hoyISO, exportarExcel, mensajeError } from '../lib.js';
+import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, mensajeError } from '../lib.js';
 import { Aviso, Modal, Estado, FechaInput } from '../componentes.js';
 import { Importador } from './importador.js';
 
 export function Admin({ ctx }) {
   const [tab, setTab] = useState('usuarios');
-  const tabs = [['usuarios', 'Usuarios y roles'], ['estructura', 'Direcciones y unidades'], ['config', 'Fecha de corte y respaldos'],
+  const tabs = [['usuarios', 'Usuarios y roles'], ['estructura', 'Direcciones y unidades'], ['bloqueo', '🔒 Bloqueo de cambios'], ['config', 'Fecha de corte y respaldos'],
     ['carga', 'Carga inicial'], ['catalogos', 'Catálogos']];
   return html`
     <div class="encabezado"><div><h1>Administración</h1><p>Solo el administrador ve esta sección. Todos los cambios quedan en la bitácora.</p></div></div>
     <div class="tabs">${tabs.map(([k, t]) => html`<button class=${tab === k ? 'activo' : ''} onClick=${() => setTab(k)}>${t}</button>`)}</div>
     ${tab === 'usuarios' && html`<${Usuarios} ctx=${ctx} />`}
     ${tab === 'estructura' && html`<${Estructura} ctx=${ctx} />`}
+    ${tab === 'bloqueo' && html`<${Bloqueo} ctx=${ctx} />`}
     ${tab === 'config' && html`<${Configuracion} ctx=${ctx} />`}
     ${tab === 'carga' && html`<${Importador} ctx=${ctx} /><${Conversiones} />`}
     ${tab === 'catalogos' && html`<${Catalogos} />`}`;
@@ -124,8 +125,9 @@ function Estructura({ ctx }) {
   async function guardar(tabla, d) {
     const fila = tabla === 'direcciones'
       ? { sigla: d.sigla, nombre: d.nombre, titular: d.titular || null, activa: d.activa !== false, orden: Number(d.orden || 0) }
-      : { sigla: d.sigla, nombre: d.nombre, jefe: d.jefe || null, direccion_id: d.direccion_id, nombre_anterior: d.nombre_anterior || null, descripcion: d.descripcion || null, activa: d.activa !== false, orden: Number(d.orden || 0) };
+      : { sigla: d.sigla, nombre: d.nombre, tiene_jefe: d.tiene_jefe !== false, jefe: d.tiene_jefe === false ? null : (d.jefe || null), direccion_id: d.direccion_id, nombre_anterior: d.nombre_anterior || null, descripcion: d.descripcion || null, activa: d.activa !== false, orden: Number(d.orden || 0) };
     if (!fila.sigla || !fila.nombre || (tabla === 'unidades' && !fila.direccion_id)) return setMsg({ err: 'Sigla, nombre (y dirección para unidades) son obligatorios.' });
+    if (tabla === 'unidades' && d.tiene_jefe !== true && d.tiene_jefe !== false) return setMsg({ err: 'Responda si la unidad cuenta con jefe de unidad.' });
     const q = d.id ? sb.from(tabla).update(fila).eq('id', d.id) : sb.from(tabla).insert(fila);
     const { error } = await q.select('id').single();
     if (error) return setMsg({ err: mensajeError(error) });
@@ -136,13 +138,14 @@ function Estructura({ ctx }) {
     <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
     <p class="ayuda">Desactivar una dirección o unidad la oculta de los selectores sin borrar sus proyectos ni su historial.</p>
     <div class="acciones" style="margin-bottom:1rem"><button onClick=${() => setEdit({ tabla: 'direcciones', d: { activa: true } })}>+ Nueva dirección</button>
-      <button onClick=${() => setEdit({ tabla: 'unidades', d: { activa: true } })}>+ Nueva unidad</button></div>
+      <button onClick=${() => setEdit({ tabla: 'unidades', d: { activa: true, tiene_jefe: null } })}>+ Nueva unidad</button></div>
+    <p class="ayuda">Si una unidad no cuenta con jefe, los cambios que proponga los valida el director de su dirección.</p>
     ${D.map(d => html`<div class="panel" style="background:#fbfcfc">
       <div class="encabezado"><div><h3>${d.sigla} · ${d.nombre} ${!d.activa ? html`<span class="etiqueta">Inactiva</span>` : ''}</h3><p>Titular: ${d.titular || '—'}</p></div>
         <button onClick=${() => setEdit({ tabla: 'direcciones', d })}>Editar</button></div>
       <div class="tabla-env"><table><thead><tr><th>Sigla</th><th>Unidad</th><th>Jefe/a</th><th>Antes</th><th>Activa</th><th></th></tr></thead>
         <tbody>${U.filter(u => u.direccion_id === d.id).map(u => html`<tr><td><b>${u.sigla}</b></td><td>${u.nombre}<br/><span class="ayuda">${u.descripcion || ''}</span></td>
-          <td>${u.jefe || '—'}</td><td>${u.nombre_anterior || '—'}</td><td>${u.activa ? 'Sí' : 'No'}</td>
+          <td>${u.tiene_jefe === false ? html`<span class="etiqueta">Sin jefe</span><br/><span class="ayuda">Valida el director</span>` : (u.jefe || '—')}</td><td>${u.nombre_anterior || '—'}</td><td>${u.activa ? 'Sí' : 'No'}</td>
           <td><button onClick=${() => setEdit({ tabla: 'unidades', d: u })}>Editar</button></td></tr>`)}</tbody></table></div></div>`)}
     ${edit && html`<${EditarEstructura} e=${edit} D=${D} onCerrar=${() => setEdit(null)} onGuardar=${d => guardar(edit.tabla, d)} />`}
   </div>`;
@@ -158,7 +161,13 @@ function EditarEstructura({ e, D, onCerrar, onGuardar }) {
       <label>Sigla<input value=${d.sigla || ''} onInput=${set('sigla')} /></label>
       <label class="ancho">Nombre<input value=${d.nombre || ''} onInput=${set('nombre')} /></label>
       ${esU ? html`<label>Dirección<select value=${d.direccion_id || ''} onChange=${set('direccion_id')}><option value="">Elegir…</option>${D.map(x => html`<option value=${x.id}>${x.sigla}</option>`)}</select></label>
-          <label>Jefe/a<input value=${d.jefe || ''} onInput=${set('jefe')} /></label>
+          <fieldset class="ancho" style="border:1px solid var(--borde);border-radius:7px;padding:.5rem .75rem">
+            <legend style="font-weight:600;font-size:.85rem">¿Cuenta con jefe de unidad?</legend>
+            <label style="flex-direction:row;align-items:center;gap:.4rem;display:inline-flex;margin-right:1.25rem"><input type="radio" name="tiene_jefe" style="width:auto" checked=${d.tiene_jefe === true} onChange=${() => setD({ ...d, tiene_jefe: true })} /> Sí</label>
+            <label style="flex-direction:row;align-items:center;gap:.4rem;display:inline-flex"><input type="radio" name="tiene_jefe" style="width:auto" checked=${d.tiene_jefe === false} onChange=${() => setD({ ...d, tiene_jefe: false })} /> No</label>
+            <p class="ayuda" style="margin:.4rem 0 0">${d.tiene_jefe === false ? 'Los cambios de esta unidad los validará el director de su dirección.' : d.tiene_jefe === true ? 'Los cambios de esta unidad los validará su jefe de unidad.' : 'Elija una opción.'}</p>
+          </fieldset>
+          ${d.tiene_jefe === true && html`<label>Jefe/a<input value=${d.jefe || ''} onInput=${set('jefe')} /></label>`}
           <label>Nombre o sigla anterior<input value=${d.nombre_anterior || ''} onInput=${set('nombre_anterior')} /></label>
           <label class="ancho">Descripción / funciones<input value=${d.descripcion || ''} onInput=${set('descripcion')} /></label>`
         : html`<label>Titular<input value=${d.titular || ''} onInput=${set('titular')} /></label>`}
@@ -166,6 +175,34 @@ function EditarEstructura({ e, D, onCerrar, onGuardar }) {
       <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.activa !== false} onChange=${set('activa')} /> Activa</label>
     </div>
   <//>`;
+}
+
+// ---------------------------------------------------------------------
+// Bloqueo general: mientras está activo, nadie salvo el administrador propone, valida ni sube evidencias
+function Bloqueo({ ctx }) {
+  const { cat, recargar } = ctx;
+  const actual = cat.config.bloqueo_cambios || { activo: false };
+  const [motivo, setMotivo] = useState(actual.motivo || '');
+  const [msg, setMsg] = useState({});
+  async function cambiar(activo) {
+    if (!confirm(activo ? '¿Bloquear los cambios para todos los usuarios? Solo usted podrá modificar datos.' : '¿Permitir de nuevo que las unidades envíen y validen cambios?')) return;
+    const valor = { activo, motivo: activo ? (motivo.trim() || null) : null, desde: activo ? new Date().toISOString() : null };
+    const { error } = await sb.from('config').upsert({ clave: 'bloqueo_cambios', valor }).select('clave').single();
+    if (error) return setMsg({ err: mensajeError(error) });
+    setMsg({ ok: activo ? 'Cambios bloqueados para todos los usuarios.' : 'Cambios permitidos de nuevo.' }); recargar();
+  }
+  return html`<div class="panel">
+    <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
+    <h3>Bloqueo de cambios</h3>
+    <p class="ayuda">Mientras el bloqueo esté activo, nadie excepto el administrador puede proponer cambios, validarlos o rechazarlos, ni subir evidencias. Todos pueden seguir consultando la información. Úselo, por ejemplo, durante un cierre de gestión o una revisión.</p>
+    <p>Estado actual: ${actual.activo
+      ? html`<b style="color:#b3261e">🔒 Bloqueado</b>${actual.desde ? ' desde el ' + fechaHora(actual.desde) : ''}${actual.motivo ? ' · ' + actual.motivo : ''}`
+      : html`<b style="color:#1e7d32">🔓 Cambios permitidos</b>`}</p>
+    ${actual.activo
+      ? html`<button class="prim" onClick=${() => cambiar(false)}>🔓 Permitir cambios</button>`
+      : html`<div class="form"><label class="ancho">Motivo (opcional, lo verán los usuarios)<input value=${motivo} onInput=${e => setMotivo(e.target.value)} placeholder="p. ej. Cierre de gestión 2026" /></label></div>
+        <button class="peligro" style="margin-top:.75rem" onClick=${() => cambiar(true)}>🔒 Bloquear cambios de todos</button>`}
+  </div>`;
 }
 
 // ---------------------------------------------------------------------

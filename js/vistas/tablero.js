@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, miles, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
+import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
 import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
 
@@ -53,6 +53,7 @@ export function Tablero({ ctx }) {
   const [meses, setMeses] = useState([]);
   const [repMes, setRepMes] = useState(null);
   const [err, setErr] = useState('');
+  const [verRevisar, setVerRevisar] = useState(false);
 
   useEffect(() => {
     sb.from('v_proyectos').select('*').order('codigo').then(({ data, error }) => error ? setErr(mensajeError(error)) : setLista(data));
@@ -102,8 +103,17 @@ export function Tablero({ ctx }) {
       ${ESTADOS.map(e => html`<div class="kpi ${e === 'No reportada' && r.porEstado[e] ? 'alerta' : ''}"><div class="v">${r.porEstado[e]}</div><div class="t">${e}</div></div>`)}
       <div class="kpi ${r.vencidos ? 'alerta' : ''}"><div class="v">${r.vencidos}</div><div class="t">Vencidos sin concluir</div></div>
       <div class="kpi ${r.reprogramados ? 'aviso' : ''}"><div class="v">${r.reprogramados}</div><div class="t">Reprogramados</div></div>
-      <div class="kpi ${r.porValidar ? 'aviso' : ''}"><div class="v">${r.porValidar}</div><div class="t">Por validar</div></div>
+      <div class="kpi ${r.porValidar ? 'aviso' : ''}" style=${r.porValidar ? 'cursor:pointer' : ''} onClick=${() => r.porValidar && setVerRevisar(!verRevisar)}
+        title="Proyectos cuyos datos de la carga inicial deben revisarse (unidad o responsable dudosos). No son cambios pendientes de validación.">
+        <div class="v">${r.porValidar}</div><div class="t">Datos por revisar${r.porValidar ? (verRevisar ? ' (clic para ocultar)' : ' (clic para ver)') : ''}</div></div>
     </div>
+    ${verRevisar && r.porValidar > 0 && html`<div class="panel" style="background:#fff8e6;border-color:#f0dc9c">
+      <h3>Datos por revisar (${r.porValidar})</h3>
+      <p class="ayuda">Proyectos marcados en la carga inicial porque su unidad o su responsable no estaban claros en la fuente. No son cambios esperando validación: hay que abrir cada proyecto, corregir el dato si hace falta y quitar la marca «Por validar» (en la ficha, pestaña de datos, solo el administrador).</p>
+      <div class="tabla-env"><table><thead><tr><th>Código</th><th>Proyecto</th><th>Unidad</th><th>Qué revisar</th></tr></thead>
+        <tbody>${filtrada.filter(p => p.por_validar).map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
+          <td class="nowrap"><b>${p.codigo}</b></td><td>${p.nombre}</td><td class="nowrap">${p.unidad_sigla || html`<span class="etiqueta">Sin unidad</span>`}</td>
+          <td>${p.por_validar_motivo || '—'}</td></tr>`)}</tbody></table></div></div>`}
     <div class="rejilla dos">
       <div class="panel"><h3>Proyectos por dirección y estado</h3>
         <${Grafico} tipo="bar" datos=${porDir} opciones=${{ scales: { x: { stacked: true }, y: { stacked: true, ticks: { precision: 0 } } }, plugins: { legend: { position: 'bottom' } } }} /></div>
@@ -115,8 +125,8 @@ export function Tablero({ ctx }) {
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
         <tbody>${filtrada.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-          <td class="nowrap"><b>${p.codigo}</b><br/><span class="pill">${p.unidad_sigla || 'Por validar'}</span></td>
-          <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta">Por validar</span>` : ''}</td>
+          <td class="nowrap"><b>${p.codigo}</b><br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
+          <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
           <td><${Estado} e=${p.estado} /></td>
           <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
           <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>

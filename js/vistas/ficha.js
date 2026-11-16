@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, exportarExcel, mensajeError } from '../lib.js';
+import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
 import { ListaPropuestas } from './validaciones.js';
 
@@ -26,6 +26,7 @@ export function Ficha({ ctx, id }) {
       sb.from('proyecto_apoyos').select('persona_id').eq('proyecto_id', id),
     ]);
     const er = a.error || b.error || c.error || d.error || e.error || f.error;
+    if (a.error && a.error.code === 'PGRST116') { setErr('Este proyecto no existe o no pertenece a su unidad o dirección.'); return; }
     if (er) { setErr(mensajeError(er)); return; }
     setP(a.data); setTareas(b.data); setReprog(c.data); setReportes(d.data); setEvid(e.data);
     setApoyos(f.data.map(x => x.persona_id));
@@ -36,7 +37,8 @@ export function Ficha({ ctx, id }) {
 
   if (err && !p) return html`<${Aviso} tipo="error">${err}<//>`;
   if (!p) return html`<div class="vacio">Cargando ficha…</div>`;
-  const editable = puedeEditar(perfil, p.unidad_id, p.direccion_id);
+  // Con el bloqueo general activo, solo el administrador edita
+  const editable = puedeEditar(perfil, p.unidad_id, p.direccion_id) && !bloqueoCambios(cat, perfil);
   const h = { p, tareas, reprog, reportes, evid, apoyos, editable, ctx, listo, fallo, recargar: cargar };
 
   const tabs = [
@@ -52,7 +54,7 @@ export function Ficha({ ctx, id }) {
           <div class="acciones" style="margin-bottom:.3rem"><span class="pill">${p.codigo}</span>
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
             <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />
-            ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Por validar</span>`}</div>
+            ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>`}</div>
           <h1>${p.nombre}</h1>
           <div class="meta">
             <span>${p.direccion_sigla} · ${p.unidad_sigla || 'Unidad por validar'}</span>
@@ -69,16 +71,16 @@ export function Ficha({ ctx, id }) {
                  onGuardar=${async (f, m) => {
                    if (perfil.rol === 'admin') { const { error } = await sb.rpc('reprogramar_proyecto', { p_id: p.id, p_fecha: f, p_motivo: m }); if (error) throw error; return listo('Proyecto reprogramado.'); }
                    const { error } = await sb.rpc('proponer', { p_tipo: 'reprogramar_proyecto', p_proyecto: p.id, p_registro: null, p_datos: { fecha: f }, p_motivo: m });
-                   if (error) throw error; listo('Reprogramación enviada al jefe de unidad. Se aplicará cuando la valide.'); }} />`
-              : html`<span class="lectura">🔒 ${perfil.rol === 'director' ? 'Su dirección tiene acceso de revisión y consulta' : 'Solo lectura'}</span>`}
+                   if (error) throw error; listo('Reprogramación enviada a validación. Se aplicará cuando la valide.'); }} />`
+              : html`<span class="lectura">🔒 ${bloqueoCambios(cat, perfil) ? 'Cambios bloqueados por el administrador' : perfil.rol === 'director' ? 'Su dirección tiene acceso de revisión y consulta' : 'Solo lectura'}</span>`}
             <button onClick=${() => exportarFichaPDF(h)}>Ficha PDF</button>
           </div>
         </div>
       </div>
     </div>
     ${p.n_mod_pendientes > 0 && html`<${Aviso} tipo="atencion">
-      ${p.n_mod_pendientes} ${p.n_mod_pendientes === 1 ? 'modificación guardada está' : 'modificaciones guardadas están'} pendiente${p.n_mod_pendientes === 1 ? '' : 's'} de validación por el jefe de la unidad.
-      ${(perfil.rol === 'jefe' || perfil.rol === 'admin') && html` <a href="#/validaciones">Ir a validar</a>`}<//>`}
+      ${p.n_mod_pendientes} ${p.n_mod_pendientes === 1 ? 'modificación guardada está' : 'modificaciones guardadas están'} pendiente${p.n_mod_pendientes === 1 ? '' : 's'} de validación.
+      ${['jefe', 'director', 'admin'].includes(perfil.rol) && html` <a href="#/validaciones">Ir a validaciones</a>`}<//>`}
     <${Aviso} tipo="error">${err}<//><${Aviso} tipo="ok">${ok}<//>
     <div class="tabs" role="tablist">${tabs.map(([k, t]) => html`<button role="tab" class=${tab === k ? 'activo' : ''} onClick=${() => setTab(k)}>${t}</button>`)}</div>
     ${tab === 'datos' && html`<${Datos} ...${h} />`}
@@ -167,7 +169,7 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       if (!Object.keys(solo).length && !apoyosCambian) { setOcupado(false); return fallo({ message: 'No hay cambios que enviar.' }); }
       const { error } = await sb.rpc('proponer', { p_tipo: 'proyecto', p_proyecto: p.id, p_registro: null, p_datos: datos, p_motivo: null });
       setOcupado(false);
-      return error ? fallo(error) : listo('Cambios enviados al jefe de unidad. Se aplicarán cuando los valide.');
+      return error ? fallo(error) : listo('Cambios enviados a validación. Se aplicarán cuando los valide.');
     }
     const { error } = await sb.from('proyectos').update(cambios).eq('id', p.id).select('id').single();
     if (error) { setOcupado(false); return fallo(error); }
@@ -231,7 +233,7 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       <div class="ancho"><small class="ayuda"><b>Qué falta para completarlo</b> (se arma solo con las tareas pendientes)</small>
         <${QueFalta} items=${p.que_falta} max=${50} /></div>
       <label class="ancho">Observaciones sobre lo que falta<textarea value=${d.observaciones_falta || ''} onInput=${set('observaciones_falta')} /></label>
-      <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.por_validar} onChange=${set('por_validar')} /> Marcado «Por validar»</label>
+      <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.por_validar} onChange=${set('por_validar')} /> Marcado «Datos por revisar» (quite la marca cuando esté corregido)</label>
       ${d.por_validar && html`<label>Motivo<input value=${d.por_validar_motivo || ''} onInput=${set('por_validar_motivo')} /></label>`}
     </div>
     ${esAdmin && html`<div class="panel" style="margin-top:1rem;background:#fbfcfc">
@@ -244,7 +246,7 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       <p class="ayuda">Sin avance manual, el avance es el promedio ponderado del avance de las tareas según su peso.</p>
     </div>`}
     <div class="acciones" style="margin-top:1rem"><button class="prim" disabled=${ocupado} onClick=${guardar}>${ocupado ? 'Guardando…' : esAdmin ? 'Guardar cambios' : 'Guardar y enviar a validación'}</button>
-      ${!esAdmin && html`<span class="ayuda">Los cambios se aplican cuando el jefe de su unidad los valida.</span>`}</div>
+      ${!esAdmin && html`<span class="ayuda">Los cambios se aplican cuando el jefe de su unidad (o el director, si la unidad no tiene jefe) los valida.</span>`}</div>
   </div>`;
 }
 
@@ -310,7 +312,7 @@ function Tareas({ p, tareas, editable, ctx, listo, fallo }) {
               onGuardar=${async (f, m) => {
                 if (ctx.perfil.rol === 'admin') { const { error } = await sb.rpc('reprogramar_tarea', { p_id: t.id, p_fecha: f, p_motivo: m }); if (error) throw error; return listo('Tarea reprogramada. La fecha vigente del proyecto y el semáforo se actualizaron si correspondía.'); }
                 const { error } = await sb.rpc('proponer', { p_tipo: 'reprogramar_tarea', p_proyecto: p.id, p_registro: t.id, p_datos: { fecha: f }, p_motivo: m });
-                if (error) throw error; listo('Reprogramación enviada al jefe de unidad. Se aplicará cuando la valide.'); }} />
+                if (error) throw error; listo('Reprogramación enviada a validación. Se aplicará cuando la valide.'); }} />
             ${ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => borrar(t)}>Eliminar</button>`}</div></td>`}
         </tr>`)}</tbody></table>
         ${!tareas.length && html`<div class="vacio">Sin tareas. ${editable ? 'Agregue la primera.' : ''}</div>`}</div>
@@ -349,7 +351,7 @@ function EditarTarea({ t, p, ctx, onCerrar, onGuardado }) {
         if (!Object.keys(solo).length) return setErr('No hay cambios que enviar.');
         res = await sb.rpc('proponer', { p_tipo: 'tarea', p_proyecto: p.id, p_registro: t.id, p_datos: { cambios: solo }, p_motivo: null });
       }
-      return res.error ? setErr(mensajeError(res.error)) : onGuardado((nueva ? 'Tarea nueva enviada' : 'Cambio de la tarea enviado') + ' al jefe de unidad. Se aplicará cuando lo valide.');
+      return res.error ? setErr(mensajeError(res.error)) : onGuardado((nueva ? 'Tarea nueva enviada' : 'Cambio de la tarea enviado') + ' a validación. Se aplicará cuando lo valide.');
     }
     const q = nueva ? sb.from('tareas').insert(fila) : sb.from('tareas').update(fila).eq('id', t.id);
     const { error } = await q.select('id').single();
@@ -437,7 +439,7 @@ function NuevoReporte({ p, ctx, onCerrar, onGuardado }) {
     };
     if (ctx.perfil.rol !== 'admin') {
       const { error } = await sb.rpc('proponer', { p_tipo: 'reporte', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
-      return error ? setErr(mensajeError(error)) : onGuardado('Reporte enviado al jefe de unidad. Se registrará cuando lo valide.');
+      return error ? setErr(mensajeError(error)) : onGuardado('Reporte enviado a validación. Se registrará cuando lo valide.');
     }
     const { error } = await sb.from('reportes_mensuales').upsert({ proyecto_id: p.id, ...fila }, { onConflict: 'proyecto_id,periodo,ficha' }).select('id').single();
     error ? setErr(mensajeError(error)) : onGuardado('Reporte registrado.');
@@ -475,7 +477,7 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
     const { error } = esAdmin ? await sb.from('evidencias').insert({ proyecto_id: p.id, ...fila })
       : await sb.rpc('proponer', { p_tipo: 'evidencia', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
     if (error) return fallo(error);
-    setNombre(''); setUrl(''); listo(esAdmin ? 'Evidencia agregada.' : 'Evidencia enviada al jefe de unidad. Se agregará cuando la valide.');
+    setNombre(''); setUrl(''); listo(esAdmin ? 'Evidencia agregada.' : 'Evidencia enviada a validación. Se agregará cuando la valide.');
   }
   async function archivo(e) {
     const f = e.target.files[0]; if (!f) return;
@@ -488,7 +490,7 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
     const { error } = esAdmin ? await sb.from('evidencias').insert({ proyecto_id: p.id, ...fila })
       : await sb.rpc('proponer', { p_tipo: 'evidencia', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
     setSubiendo(false); e.target.value = '';
-    error ? fallo(error) : listo(esAdmin ? 'Archivo subido.' : 'Archivo enviado al jefe de unidad. Se agregará como evidencia cuando lo valide.');
+    error ? fallo(error) : listo(esAdmin ? 'Archivo subido.' : 'Archivo enviado a validación. Se agregará como evidencia cuando lo valide.');
   }
   async function abrir(ev) {
     if (ev.url) return window.open(ev.url, '_blank', 'noopener');

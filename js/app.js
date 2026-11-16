@@ -1,6 +1,6 @@
 import { html, render, useState, useEffect, sb, ROLES, mensajeError } from './lib.js';
 import { CONFIG } from './config.js';
-import { Aviso, Modal } from './componentes.js';
+import { Aviso, Modal, ClaveInput } from './componentes.js';
 
 // Cada usuario cambia su propia contraseña (Supabase Auth, sin pasar por el administrador)
 function CambiarClave() {
@@ -19,8 +19,8 @@ function CambiarClave() {
         <button onClick=${() => setAbierto(false)}>Cerrar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
       <${Aviso} tipo="error">${msg.err}<//><${Aviso} tipo="ok">${msg.ok}<//>
       <div class="form">
-        <label>Nueva contraseña<input type="password" autocomplete="new-password" value=${a} onInput=${e => setA(e.target.value)} /></label>
-        <label>Repita la contraseña<input type="password" autocomplete="new-password" value=${b} onInput=${e => setB(e.target.value)} /></label>
+        <label>Nueva contraseña<${ClaveInput} autocomplete="new-password" value=${a} onInput=${e => setA(e.target.value)} /></label>
+        <label>Repita la contraseña<${ClaveInput} autocomplete="new-password" value=${b} onInput=${e => setB(e.target.value)} /></label>
       </div>
       <p class="ayuda">Mínimo 10 caracteres. Use una que no use en otros sistemas.</p>
     <//>`}`;
@@ -107,8 +107,8 @@ function Registro({ onVolver }) {
         <option value="">Elegir…</option>${(op?.direcciones || []).map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
       <label>Unidad<select required value=${d.unidad_id} onChange=${set('unidad_id')} disabled=${!d.direccion_id}>
         <option value="">Elegir…</option>${unidades.map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
-      <label>Contraseña (mínimo 10 caracteres)<input type="password" required autocomplete="new-password" value=${d.clave} onInput=${set('clave')} /></label>
-      <label>Repita la contraseña<input type="password" required autocomplete="new-password" value=${d.clave2} onInput=${set('clave2')} /></label>
+      <label>Contraseña (mínimo 10 caracteres)<${ClaveInput} required autocomplete="new-password" value=${d.clave} onInput=${set('clave')} /></label>
+      <label>Repita la contraseña<${ClaveInput} required autocomplete="new-password" value=${d.clave2} onInput=${set('clave2')} /></label>
       <button class="prim" disabled=${ocupado}>${ocupado ? 'Enviando…' : 'Crear mi cuenta'}</button>
       <button type="button" onClick=${onVolver}>Ya tengo cuenta: ingresar</button>
     </form>
@@ -154,7 +154,7 @@ function IngresoForm({ onRegistro }) {
     <${Aviso} tipo="error">${err}<//>
     <form onSubmit=${entrar}>
       <label>Correo<input type="email" autocomplete="username" required value=${correo} onInput=${e => setCorreo(e.target.value)} /></label>
-      <label>Contraseña<input type="password" autocomplete="current-password" required value=${clave} onInput=${e => setClave(e.target.value)} /></label>
+      <label>Contraseña<${ClaveInput} required autocomplete="current-password" value=${clave} onInput=${e => setClave(e.target.value)} /></label>
       <button class="prim" disabled=${ocupado}>${ocupado ? 'Ingresando…' : 'Ingresar'}</button>
       ${CONFIG.PROVEEDOR_INSTITUCIONAL && html`<button type="button" onClick=${institucional}>${CONFIG.ETIQUETA_INSTITUCIONAL}</button>`}
     </form>
@@ -219,7 +219,7 @@ function Aplicacion({ sesion }) {
     ['tablero', perfil.rol === 'admin' ? 'Consolidado SMCI' : 'Tablero'],
     ['proyectos', 'Proyectos'],
     ...(perfil.unidad_id || perfil.rol === 'director' ? [['mi-unidad', perfil.rol === 'director' ? 'Mi dirección' : 'Mi unidad']] : []),
-    ...(perfil.rol === 'admin' || perfil.rol === 'jefe' ? [['validaciones', 'Validaciones']] : []),
+    ...(perfil.rol === 'admin' || perfil.rol === 'jefe' || perfil.rol === 'director' ? [['validaciones', 'Validaciones']] : []),
     ...(perfil.rol === 'admin' ? [['admin', 'Administración']] : []),
   ];
   const activo = r.vista === 'proyecto' ? 'proyectos' : r.vista;
@@ -229,7 +229,7 @@ function Aplicacion({ sesion }) {
   else if (r.vista === 'proyecto') vista = html`<${Ficha} ctx=${ctx} id=${r.id} key=${r.id} />`;
   else if (r.vista === 'mi-unidad') vista = html`<${MiUnidad} ctx=${ctx} />`;
   else if (r.vista === 'admin' && perfil.rol === 'admin') vista = html`<${Admin} ctx=${ctx} />`;
-  else if (r.vista === 'validaciones' && (perfil.rol === 'admin' || perfil.rol === 'jefe')) vista = html`<${Validaciones} ctx=${ctx} />`;
+  else if (r.vista === 'validaciones' && ['admin', 'jefe', 'director'].includes(perfil.rol)) vista = html`<${Validaciones} ctx=${ctx} />`;
   else vista = html`<${Tablero} ctx=${ctx} />`;
 
   return html`
@@ -249,7 +249,10 @@ function Aplicacion({ sesion }) {
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
-      <main class="contenido">${vista}</main>
+      <main class="contenido">${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
+        🔒 ${esAdmin ? 'Usted bloqueó los cambios para todos los usuarios.' : 'El administrador bloqueó temporalmente los cambios. Puede consultar la información, pero no enviar ni validar cambios.'}
+        ${cat.config.bloqueo_cambios.motivo ? ' Motivo: ' + cat.config.bloqueo_cambios.motivo + '.' : ''}
+        ${esAdmin ? html` <a href="#/admin">Desbloquear</a>` : ''}<//>`}${vista}</main>
     </div>`;
 }
 
