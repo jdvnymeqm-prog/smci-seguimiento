@@ -219,7 +219,7 @@ function Aplicacion({ sesion }) {
     ['tablero', perfil.rol === 'admin' ? 'Consolidado SMCI' : 'Tablero'],
     ['proyectos', 'Proyectos'],
     ...(perfil.unidad_id || perfil.rol === 'director' ? [['mi-unidad', perfil.rol === 'director' ? 'Mi dirección' : 'Mi unidad']] : []),
-    ...(perfil.rol === 'admin' || perfil.rol === 'jefe' ? [['validaciones', 'Validaciones']] : []),
+    ...(perfil.rol === 'admin' || perfil.rol === 'jefe' || perfil.rol === 'director' ? [['validaciones', 'Validaciones']] : []),
     ...(perfil.rol === 'admin' ? [['admin', 'Administración']] : []),
   ];
   const activo = r.vista === 'proyecto' ? 'proyectos' : r.vista;
@@ -229,7 +229,7 @@ function Aplicacion({ sesion }) {
   else if (r.vista === 'proyecto') vista = html`<${Ficha} ctx=${ctx} id=${r.id} key=${r.id} />`;
   else if (r.vista === 'mi-unidad') vista = html`<${MiUnidad} ctx=${ctx} />`;
   else if (r.vista === 'admin' && perfil.rol === 'admin') vista = html`<${Admin} ctx=${ctx} />`;
-  else if (r.vista === 'validaciones' && (perfil.rol === 'admin' || perfil.rol === 'jefe')) vista = html`<${Validaciones} ctx=${ctx} />`;
+  else if (r.vista === 'validaciones' && ['admin', 'jefe', 'director'].includes(perfil.rol)) vista = html`<${Validaciones} ctx=${ctx} />`;
   else vista = html`<${Tablero} ctx=${ctx} />`;
 
   return html`
@@ -249,7 +249,10 @@ function Aplicacion({ sesion }) {
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
-      <main class="contenido">${vista}</main>
+      <main class="contenido">${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
+        🔒 ${esAdmin ? 'Usted bloqueó los cambios para todos los usuarios.' : 'El administrador bloqueó temporalmente los cambios. Puede consultar la información, pero no enviar ni validar cambios.'}
+        ${cat.config.bloqueo_cambios.motivo ? ' Motivo: ' + cat.config.bloqueo_cambios.motivo + '.' : ''}
+        ${esAdmin ? html` <a href="#/admin">Desbloquear</a>` : ''}<//>`}${vista}</main>
     </div>`;
 }
 

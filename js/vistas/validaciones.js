@@ -1,7 +1,7 @@
 // Propuestas de cambio: las unidades proponen, el jefe de unidad valida (se aplica) o rechaza.
 // Lo validado queda cerrado; nueva información sobre el mismo dato después de 72 h,
 // o antes con un permiso de corrección del administrador.
-import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError } from '../lib.js';
+import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar } from '../lib.js';
 import { Aviso, Modal } from '../componentes.js';
 
 export const TIPOS = {
@@ -50,7 +50,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   const [texto, setTexto] = useState('');
   const [msg, setMsg] = useState({});
   const esAdmin = perfil.rol === 'admin';
-  const puedeRevisar = m => esAdmin || (perfil.rol === 'jefe' && m.unidad_id && m.unidad_id === perfil.unidad_id);
+  const puedeRevisar = m => puedeValidar(perfil, cat.todasUnidades.find(u => u.id === m.unidad_id));
 
   const cargar = () => {
     let q = sb.from('propuestas').select('*, proyectos(codigo,nombre)').eq('estado', vista);
@@ -109,14 +109,17 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
       <div class="form" style="margin-top:1rem"><label class="ancho">${accion.tipo === 'rechazar' ? 'Motivo del rechazo (obligatorio)' : accion.tipo === 'permiso' ? 'Motivo de la corrección (opcional)' : 'Observación (opcional)'}
         <textarea value=${texto} onInput=${e => setTexto(e.target.value)} /></label></div>
       ${accion.tipo === 'validar' && html`<${Aviso} tipo="atencion">Al validar, el cambio se aplica y queda cerrado. Solo el administrador podrá modificarlo o dar permiso de corrección.<//>`}
-      ${accion.tipo === 'permiso' && html`<${Aviso} tipo="info">La unidad podrá enviar una corrección de este dato sin esperar las 72 horas. El permiso sirve una vez y vence en 7 días. La corrección también la valida el jefe de unidad.<//>`}
+      ${accion.tipo === 'permiso' && html`<${Aviso} tipo="info">La unidad podrá enviar una corrección de este dato sin esperar las 72 horas. El permiso sirve una vez y vence en 7 días. La corrección también la valida el jefe de unidad (o el director, si la unidad no tiene jefe).<//>`}
     <//>`}`;
 }
 
 export function Validaciones({ ctx }) {
-  const { perfil } = ctx;
+  const { perfil, cat } = ctx;
+  const sinJefe = cat.unidades.filter(u => u.tiene_jefe === false);
   return html`
     <div class="encabezado"><div><h1>Validaciones</h1>
-      <p>${perfil.rol === 'admin' ? 'Todas las unidades.' : 'Cambios propuestos en su unidad.'} Ningún cambio de la unidad se aplica hasta que el jefe lo valida. Lo validado queda cerrado: nueva información sobre el mismo dato se puede proponer pasadas 72 horas, o antes con permiso del administrador.</p></div></div>
+      <p>${perfil.rol === 'admin' ? 'Todas las unidades.' : perfil.rol === 'director'
+        ? (sinJefe.length ? `Usted valida los cambios de las unidades sin jefe: ${sinJefe.map(u => u.sigla).join(', ')}. Las demás unidades las valida su jefe.` : 'Todas las unidades de su dirección tienen jefe: ellos validan. Aquí puede consultar las propuestas.')
+        : 'Cambios propuestos en su unidad.'} Ningún cambio de una unidad se aplica hasta que su jefe (o el director, si la unidad no tiene jefe) lo valida. Lo validado queda cerrado: nueva información sobre el mismo dato se puede proponer pasadas 72 horas, o antes con permiso del administrador.</p></div></div>
     <${ListaPropuestas} ctx=${ctx} />`;
 }

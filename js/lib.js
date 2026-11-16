@@ -87,6 +87,23 @@ export function leerMonto(txt) {
 export function sinTildes(s) { return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 export function norm(s) { return sinTildes(String(s || '')).toLowerCase().replace(/\s+/g, ' ').trim(); }
 
+// ---------- Validación: jefe de unidad o, si la unidad no tiene jefe, el director ----------
+export function puedeValidar(perfil, unidad) {
+  if (!perfil || !perfil.activo) return false;
+  if (perfil.rol === 'admin') return true;
+  if (!unidad) return false;
+  if (perfil.rol === 'jefe') return perfil.unidad_id === unidad.id;
+  if (perfil.rol === 'director') return unidad.tiene_jefe === false && perfil.direccion_id === unidad.direccion_id;
+  return false;
+}
+export function quienValida(unidad) {
+  return unidad && unidad.tiene_jefe === false ? 'el director' : 'el jefe de unidad';
+}
+export function bloqueoCambios(cat, perfil) {
+  const b = cat?.config?.bloqueo_cambios;
+  return !!(b && b.activo) && perfil?.rol !== 'admin';
+}
+
 // ---------- Permisos en la interfaz (el servidor los vuelve a validar con RLS) ----------
 export function puedeEditar(perfil, unidadId, direccionId) {
   if (!perfil || !perfil.activo) return false;

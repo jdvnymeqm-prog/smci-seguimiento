@@ -98,7 +98,7 @@ export function NuevoProyecto({ ctx, lista, onCerrar, onCreado }) {
         por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null } });
       setOcupado(false);
       if (error) return setErr(mensajeError(error));
-      alert('Proyecto enviado al jefe de unidad. Aparecerá en la lista cuando lo valide.');
+      alert('Proyecto enviado a validación. Aparecerá en la lista cuando lo valide.');
       return onCerrar();
     }
     const { data, error } = await sb.from('proyectos').insert({
