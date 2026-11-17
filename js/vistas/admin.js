@@ -1,15 +1,17 @@
-import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, mensajeError } from '../lib.js';
+import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
 import { Aviso, Modal, Estado, FechaInput } from '../componentes.js';
 import { Importador } from './importador.js';
+import { TIPOS, CAMPOS } from './validaciones.js';
 
 export function Admin({ ctx }) {
   const [tab, setTab] = useState('usuarios');
-  const tabs = [['usuarios', 'Usuarios y roles'], ['estructura', 'Direcciones y unidades'], ['bloqueo', '🔒 Bloqueo de cambios'], ['config', 'Fecha de corte y respaldos'],
+  const tabs = [['usuarios', 'Usuarios y roles'], ['actividad', 'Actividad por usuario'], ['estructura', 'Direcciones y unidades'], ['bloqueo', '🔒 Bloqueo de cambios'], ['config', 'Fecha de corte y respaldos'],
     ['carga', 'Carga inicial'], ['catalogos', 'Catálogos']];
   return html`
     <div class="encabezado"><div><h1>Administración</h1><p>Solo el administrador ve esta sección. Todos los cambios quedan en la bitácora.</p></div></div>
     <div class="tabs">${tabs.map(([k, t]) => html`<button class=${tab === k ? 'activo' : ''} onClick=${() => setTab(k)}>${t}</button>`)}</div>
     ${tab === 'usuarios' && html`<${Usuarios} ctx=${ctx} />`}
+    ${tab === 'actividad' && html`<${Actividad} ctx=${ctx} />`}
     ${tab === 'estructura' && html`<${Estructura} ctx=${ctx} />`}
     ${tab === 'bloqueo' && html`<${Bloqueo} ctx=${ctx} />`}
     ${tab === 'config' && html`<${Configuracion} ctx=${ctx} />`}
@@ -115,6 +117,134 @@ function EditarUsuario({ u, cat, onCerrar, onListo }) {
       <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${!!d.activo} onChange=${set('activo')} /> Usuario activo</label>
     </div>
   <//>`;
+}
+
+// ---------------------------------------------------------------------
+// Actividad por usuario: qué hizo cada persona (cambios, propuestas, validaciones) y cuándo ingresó
+const TABLAS_ACT = { proyectos: 'Proyecto', tareas: 'Tarea', evidencias: 'Evidencia', reportes_mensuales: 'Reporte mensual',
+  perfiles: 'Usuario', unidades: 'Unidad', direcciones: 'Dirección', config: 'Configuración', personas: 'Persona' };
+const ACCION_ACT = { crear: 'Creó', modificar: 'Modificó', eliminar: 'Eliminó' };
+// Bolivia está en UTC-4 todo el año
+const iniDia = d => d ? d + 'T00:00:00-04:00' : null;
+const finDia = d => d ? d + 'T23:59:59.999-04:00' : null;
+
+function Actividad({ ctx }) {
+  const { cat } = ctx;
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [lista, setLista] = useState(null);
+  const [err, setErr] = useState('');
+  const [sel, setSel] = useState(null);
+  const cargar = () => {
+    setLista(null);
+    sb.rpc('actividad_usuarios', { p_desde: desde || null, p_hasta: hasta || null })
+      .then(({ data, error }) => error ? setErr(mensajeError(error)) : setLista(data || []));
+  };
+  useEffect(() => { cargar(); }, [desde, hasta]);
+  const uni = id => (cat.todasUnidades.find(u => u.id === id) || {}).sigla;
+  const dir = id => (cat.todasDirecciones.find(u => u.id === id) || {}).sigla;
+  const area = u => [dir(u.direccion_id), uni(u.unidad_id)].filter(Boolean).join(' · ') || '—';
+  const total = u => Number(u.n_cambios) + Number(u.n_propuestas) + Number(u.n_validadas) + Number(u.n_rechazadas);
+  const cols = [
+    { titulo: 'Usuario', valor: u => u.nombre || u.correo, ancho: 28 }, { titulo: 'Correo', campo: 'correo', ancho: 28 },
+    { titulo: 'Rol', valor: u => ROLES[u.rol] || u.rol }, { titulo: 'Área', valor: area },
+    { titulo: 'Último ingreso', valor: u => u.ultimo_ingreso ? fechaHora(u.ultimo_ingreso) : 'Nunca' },
+    { titulo: 'Cambios registrados', campo: 'n_cambios' }, { titulo: 'Propuestas enviadas', campo: 'n_propuestas' },
+    { titulo: 'Validó', campo: 'n_validadas' }, { titulo: 'Rechazó', campo: 'n_rechazadas' },
+    { titulo: 'Reprogramaciones', campo: 'n_reprogramaciones' },
+    { titulo: 'Última actividad', valor: u => u.ultima_actividad ? fechaHora(u.ultima_actividad) : '—' },
+  ];
+  const periodo = (desde || hasta) ? `Periodo: ${desde ? fecha(desde) : 'inicio'} al ${hasta ? fecha(hasta) : 'hoy'}` : 'Todo el historial';
+  if (sel) return html`<${HistorialUsuario} u=${sel} desde=${desde} hasta=${hasta} periodo=${periodo} area=${area(sel)} onVolver=${() => setSel(null)} />`;
+  return html`<div class="panel">
+    <${Aviso} tipo="error">${err}<//>
+    <div class="encabezado"><div><h3>Actividad por usuario</h3>
+      <p>Lo que hizo cada persona en la aplicación. Los números cuentan solo el periodo elegido; el último ingreso es siempre el más reciente.</p></div>
+      ${lista && html`<div class="acciones"><button onClick=${() => exportarExcel('actividad_usuarios', cols, lista, 'Actividad')}>Exportar Excel</button>
+        <button onClick=${() => exportarPDF('Actividad por usuario', periodo, cols, lista, 'actividad_usuarios')}>Exportar PDF</button></div>`}</div>
+    <div class="filtros"><label>Desde<${FechaInput} valor=${desde} onCambio=${setDesde} /></label>
+      <label>Hasta<${FechaInput} valor=${hasta} onCambio=${setHasta} /></label>
+      ${(desde || hasta) && html`<button onClick=${() => { setDesde(''); setHasta(''); }}>Quitar fechas</button>`}</div>
+    ${!lista ? html`<div class="vacio">Cargando…</div>` : html`<div class="tabla-env"><table>
+      <thead><tr><th>Usuario</th><th>Rol · área</th><th>Último ingreso</th><th class="num">Cambios</th><th class="num">Propuestas</th>
+        <th class="num">Validó</th><th class="num">Rechazó</th><th>Última actividad</th><th></th></tr></thead>
+      <tbody>${lista.map(u => html`<tr class="clic" onClick=${() => setSel(u)}>
+        <td><b>${u.nombre || '—'}</b>${!u.activo ? html` <span class="etiqueta">Inactivo</span>` : ''}${u.estado_acceso === 'pendiente' ? html` <span class="etiqueta">Pendiente</span>` : ''}<br/><span class="ayuda">${u.correo}</span></td>
+        <td>${ROLES[u.rol] || u.rol}<br/><span class="ayuda">${area(u)}</span></td>
+        <td class="nowrap">${u.ultimo_ingreso ? fechaHora(u.ultimo_ingreso) : html`<span class="ayuda">Nunca</span>`}</td>
+        <td class="num">${u.n_cambios}</td><td class="num">${u.n_propuestas}</td><td class="num">${u.n_validadas}</td><td class="num">${u.n_rechazadas}</td>
+        <td class="nowrap">${u.ultima_actividad ? fechaHora(u.ultima_actividad) : '—'}</td>
+        <td><button onClick=${e => { e.stopPropagation(); setSel(u); }}>${total(u) ? 'Ver historial' : 'Ver'}</button></td></tr>`)}</tbody></table>
+      ${!lista.length && html`<div class="vacio">No hay usuarios.</div>`}</div>`}
+  </div>`;
+}
+
+function HistorialUsuario({ u, desde, hasta, periodo, area, onVolver }) {
+  const [filas, setFilas] = useState(null);
+  const [err, setErr] = useState('');
+  const [tipo, setTipo] = useState('');
+  const LIM = 1000;
+  useEffect(() => {
+    (async () => {
+      let b = sb.from('bitacora').select('id,tabla,proyecto_id,accion,campo,valor_anterior,valor_nuevo,usuario_nombre,creado_en')
+        .eq('usuario_id', u.id).order('creado_en', { ascending: false }).limit(LIM);
+      let m = sb.from('propuestas').select('id,tipo,proyecto_id,datos,resumen,motivo,estado,creado_por,creado_por_nombre,creado_en,revisado_por,revisado_en,observacion')
+        .or(`creado_por.eq.${u.id},revisado_por.eq.${u.id}`).order('creado_en', { ascending: false }).limit(LIM);
+      if (desde) { b = b.gte('creado_en', iniDia(desde)); }
+      if (hasta) { b = b.lte('creado_en', finDia(hasta)); }
+      const [rb, rm, rp] = await Promise.all([b, m, sb.from('proyectos').select('id,codigo,nombre')]);
+      const e = rb.error || rm.error || rp.error;
+      if (e) return setErr(mensajeError(e));
+      const proy = Object.fromEntries(rp.data.map(p => [p.id, p]));
+      const enRango = f => (!desde || f >= iniDia(desde)) && (!hasta || f <= finDia(hasta));
+      const cod = id => proy[id]?.codigo || '';
+      const nom = id => proy[id]?.nombre || '';
+      const res = [];
+      for (const x of rb.data) res.push({
+        fecha: x.creado_en, tipo: 'Cambio registrado', proyecto_id: x.proyecto_id, codigo: cod(x.proyecto_id), proyecto: nom(x.proyecto_id),
+        accion: `${ACCION_ACT[x.accion] || x.accion} ${(TABLAS_ACT[x.tabla] || x.tabla).toLowerCase()}`,
+        detalle: x.campo === '(registro)' ? (x.valor_nuevo || x.valor_anterior || '').slice(0, 200)
+          : `${CAMPOS[x.campo] || x.campo}: ${(x.valor_anterior ?? '—').slice(0, 120)} → ${(x.valor_nuevo ?? '—').slice(0, 120)}`,
+        nota: /\(validó /.test(x.usuario_nombre || '') ? 'Aplicado al validar la propuesta de ' + x.usuario_nombre.replace(/ \(validó .*$/, '') : '' });
+      for (const x of rm.data) {
+        const resumen = (x.resumen || []).map(c => CAMPOS[c.campo] || c.campo).join(', ');
+        const pid = x.proyecto_id, c = cod(pid) || x.datos?.codigo || '', n = nom(pid) || x.datos?.nombre || '';
+        if (x.creado_por === u.id && enRango(x.creado_en)) res.push({ fecha: x.creado_en, tipo: 'Propuesta enviada', proyecto_id: pid, codigo: c, proyecto: n,
+          accion: TIPOS[x.tipo] || x.tipo, detalle: resumen + (x.motivo ? ` · Motivo: ${x.motivo}` : ''),
+          nota: { pendiente: 'Pendiente de validación', validada: 'Validada', rechazada: 'Rechazada' + (x.observacion ? ': ' + x.observacion : '') }[x.estado] });
+        if (x.revisado_por === u.id && x.revisado_en && enRango(x.revisado_en)) res.push({ fecha: x.revisado_en,
+          tipo: x.estado === 'validada' ? 'Validó' : 'Rechazó', proyecto_id: pid, codigo: c, proyecto: n,
+          accion: TIPOS[x.tipo] || x.tipo, detalle: `Propuesta de ${x.creado_por_nombre || '—'}: ${resumen}`, nota: x.observacion || '' });
+      }
+      res.sort((a, b2) => b2.fecha.localeCompare(a.fecha));
+      setFilas({ res, truncado: rb.data.length === LIM || rm.data.length === LIM });
+    })();
+  }, [u.id, desde, hasta]);
+  const tipos = filas ? [...new Set(filas.res.map(f => f.tipo))] : [];
+  const vis = filas ? filas.res.filter(f => !tipo || f.tipo === tipo) : [];
+  const cols = [{ titulo: 'Fecha y hora', valor: f => fechaHora(f.fecha) }, { titulo: 'Tipo', campo: 'tipo' }, { titulo: 'Proyecto', valor: f => f.codigo },
+    { titulo: 'Nombre del proyecto', campo: 'proyecto', ancho: 35 }, { titulo: 'Acción', campo: 'accion' },
+    { titulo: 'Detalle', campo: 'detalle', ancho: 60 }, { titulo: 'Observación', campo: 'nota', ancho: 35 }];
+  const sub = `${u.nombre || ''} (${u.correo}) · ${ROLES[u.rol] || u.rol} · ${area} · ${periodo}`;
+  const archivo = 'historial_' + (u.correo || 'usuario').split('@')[0];
+  return html`<div class="panel">
+    <p><button onClick=${onVolver}>← Volver a la lista</button></p>
+    <div class="encabezado"><div><h3>Historial de ${u.nombre || u.correo}</h3>
+      <p>${u.correo} · ${ROLES[u.rol] || u.rol} · ${area}<br/>Último ingreso: ${u.ultimo_ingreso ? fechaHora(u.ultimo_ingreso) : 'nunca'} · ${periodo}</p></div>
+      ${filas && filas.res.length > 0 && html`<div class="acciones"><button onClick=${() => exportarExcel(archivo, cols, vis, 'Historial')}>Exportar Excel</button>
+        <button onClick=${() => exportarPDF('Historial de actividad', sub, cols, vis, archivo)}>Exportar PDF</button></div>`}</div>
+    <${Aviso} tipo="error">${err}<//>
+    ${!filas && !err ? html`<div class="vacio">Cargando historial…</div>` : filas && html`
+      ${filas.truncado && html`<${Aviso} tipo="atencion">Se muestran los ${LIM} movimientos más recientes. Use las fechas para ver periodos anteriores.<//>`}
+      ${tipos.length > 1 && html`<div class="filtros"><label>Tipo<select value=${tipo} onChange=${e => setTipo(e.target.value)}>
+        <option value="">Todos (${filas.res.length})</option>${tipos.map(t => html`<option value=${t}>${t} (${filas.res.filter(f => f.tipo === t).length})</option>`)}</select></label></div>`}
+      <div class="tabla-env"><table><thead><tr><th>Fecha y hora</th><th>Tipo</th><th>Proyecto</th><th>Acción</th><th>Detalle</th></tr></thead>
+        <tbody>${vis.map(f => html`<tr class=${f.proyecto_id ? 'clic' : ''} onClick=${() => f.proyecto_id && (location.hash = '#/proyecto/' + f.proyecto_id)}>
+          <td class="nowrap">${fechaHora(f.fecha)}</td><td class="nowrap"><span class="pill">${f.tipo}</span></td>
+          <td>${f.codigo ? html`<b>${f.codigo}</b><br/><span class="ayuda">${f.proyecto}</span>` : '—'}</td>
+          <td>${f.accion}</td><td class="prewrap">${f.detalle}${f.nota ? html`<br/><span class="ayuda">${f.nota}</span>` : ''}</td></tr>`)}</tbody></table>
+        ${!vis.length && html`<div class="vacio">Esta persona no registró actividad${desde || hasta ? ' en el periodo elegido' : ''}.</div>`}</div>`}
+  </div>`;
 }
 
 // ---------------------------------------------------------------------

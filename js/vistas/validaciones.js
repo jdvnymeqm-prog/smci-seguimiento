@@ -8,7 +8,7 @@ export const TIPOS = {
   proyecto: 'Datos del proyecto', reprogramar_proyecto: 'Reprogramar entrega', crear_tarea: 'Nueva tarea', tarea: 'Cambio de tarea',
   reprogramar_tarea: 'Reprogramar tarea', reporte: 'Reporte mensual', evidencia: 'Evidencia', crear_proyecto: 'Nuevo proyecto',
 };
-const CAMPOS = {
+export const CAMPOS = {
   nombre: 'Nombre', descripcion: 'Descripción', objetivo: 'Objetivo', estado: 'Estado', avance: 'Avance (%)', codigo: 'Código',
   codigo_gobierno: 'Código de gobierno', responsable_id: 'Responsable', fecha_inicio: 'Fecha de inicio', fecha_entrega_original: 'Entrega original',
   fecha_entrega_vigente: 'Entrega vigente', fecha_vigente: 'Fecha vigente', situacion_actual: 'Situación actual', proximo_paso: 'Próximo paso',
