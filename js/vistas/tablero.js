@@ -36,14 +36,45 @@ export async function cargarReportesMes(mes) {
   return m;
 }
 
-function Grafico({ tipo, datos, opciones }) {
+// Gráfico de avance: barras horizontales (0–100 %) con su resumen
+const COLOR_PROGRAMA = { E3P23: '#18465c', E3P24: '#2b6cb0', E3P25: '#2e7d4f', E3P26: '#8e44ad', E3P27: '#c98a00', E3P28: '#c0392b' };
+const corto = (t, n = 48) => t && t.length > n ? t.slice(0, n - 1) + '…' : (t || '');
+const prom = xs => xs.length ? +(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length).toFixed(1) : 0;
+
+function PanelAvance({ titulo, nota, filas, ps, destacado }) {
+  const activos = ps.filter(p => p.estado !== 'Cancelada');
+  const kpis = [
+    ['Proyectos', ps.length], ['Avance promedio', pct(prom(activos))],
+    ['Concluidos', ps.filter(p => p.estado === 'Concluida').length], ['En ejecución', ps.filter(p => p.estado === 'En ejecución').length],
+    ['No iniciados', ps.filter(p => p.estado === 'No iniciada').length], ['Vencidos', ps.filter(p => p.vencido).length],
+  ];
+  const datos = {
+    labels: filas.map(f => f.etiqueta),
+    datasets: [{ label: 'Avance (%)', data: filas.map(f => f.avance), backgroundColor: filas.map(f => f.color), borderRadius: 3 }],
+  };
+  const opciones = {
+    indexAxis: 'y', plugins: { legend: { display: false },
+      tooltip: { callbacks: { title: it => filas[it[0].dataIndex].titulo, label: it => ` Avance: ${it.raw} %${filas[it.dataIndex].n > 1 ? ' (promedio de ' + filas[it.dataIndex].n + ' proyectos)' : ''}` } } },
+    scales: { x: { min: 0, max: 100, title: { display: true, text: '% de avance' } }, y: { ticks: { autoSkip: false, font: { size: 11 } } } },
+    onClick: (_e, el) => { if (el.length && filas[el[0].index].id) location.hash = '#/proyecto/' + filas[el[0].index].id; },
+  };
+  return html`<div class="panel" style=${destacado ? 'border:2px solid #18465c' : ''}>
+    <h2 style="margin-top:0">${titulo}</h2>
+    ${nota && html`<p class="ayuda">${nota}</p>`}
+    <div class="rejilla kpis" style="margin-bottom:.75rem">${kpis.map(([t, v]) => html`<div class="kpi"><div class="v">${v}</div><div class="t">${t}</div></div>`)}</div>
+    ${filas.length ? html`<${Grafico} tipo="bar" datos=${datos} opciones=${opciones} alto=${Math.max(160, filas.length * 26 + 60)} />`
+      : html`<div class="vacio">No hay proyectos con estos filtros.</div>`}
+  </div>`;
+}
+
+function Grafico({ tipo, datos, opciones, alto }) {
   const ref = useRef(null);
   useEffect(() => {
     if (!ref.current || !window.Chart) return;
     const g = new Chart(ref.current, { type: tipo, data: datos, options: { responsive: true, maintainAspectRatio: false, ...opciones } });
     return () => g.destroy();
   }, [JSON.stringify(datos)]);
-  return html`<div class="graf"><canvas ref=${ref}></canvas></div>`;
+  return html`<div class="graf" style=${alto ? `height:${alto}px` : ''}><canvas ref=${ref}></canvas></div>`;
 }
 
 export function Tablero({ ctx }) {
@@ -85,6 +116,16 @@ export function Tablero({ ctx }) {
       { label: 'N.º de proyectos', backgroundColor: '#f2c14e', data: unis.map(u => u.ps.length), xAxisID: 'x2' },
     ],
   };
+  // Dentro del plan: una barra por numeral (23, 23.1, 24, 24.1…), con el promedio de sus proyectos
+  const E = cat.estrategicos || [];
+  const filasEst = E.map(e => ({ e, xs: est.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length).map(({ e, xs }) => ({
+    etiqueta: `${e.numeral}  ${corto(e.tipo === 'programa' ? 'Otras acciones del programa: ' + e.nombre : e.nombre)}`,
+    titulo: `${e.numeral} ${e.tipo === 'programa' ? '(programa) ' : ''}${e.nombre}`,
+    avance: prom(xs.filter(p => p.estado !== 'Cancelada').length ? xs.filter(p => p.estado !== 'Cancelada') : xs),
+    n: xs.length, id: xs.length === 1 ? xs[0].id : null, color: COLOR_PROGRAMA[e.programa] || '#23637f' }));
+  // Fuera del plan: una barra por proyecto
+  const filasOtros = otros.map(p => ({ etiqueta: `${p.codigo}  ${corto(p.nombre)}`, titulo: `${p.codigo} ${p.nombre}`,
+    avance: Number(p.avance || 0), n: 1, id: p.id, color: COLOR_ESTADO[p.estado] || '#23637f' }));
   const sub = describirFiltros(f, cat);
   const enMes = f.mes && f.mes !== mesActualISO();
 
@@ -118,6 +159,12 @@ export function Tablero({ ctx }) {
         <tbody>${filtrada.filter(p => p.por_validar).map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
           <td class="nowrap"><${Codigo} p=${p} /></td><td>${p.nombre}</td><td class="nowrap">${p.unidad_sigla || html`<span class="etiqueta">Sin unidad</span>`}</td>
           <td>${p.por_validar_motivo || '—'}</td></tr>`)}</tbody></table></div></div>`}
+    <${PanelAvance} destacado=${true} titulo=${'Proyectos dentro del plan de gobierno · Eje III Ciudad Inteligente'}
+      nota="Avance por proyecto estratégico. Cuando un numeral tiene varios proyectos SMCI, la barra es su promedio. Color por programa: 23 azul oscuro · 24 azul · 25 verde · 26 violeta · 27 ámbar · 28 rojo. Haga clic en una barra de un solo proyecto para abrirlo."
+      filas=${filasEst} ps=${est} />
+    <${PanelAvance} titulo="Proyectos fuera del plan de gobierno"
+      nota="Avance de cada proyecto. Color según su estado: azul en ejecución, verde concluido, gris no iniciado, rojo no reportado. Haga clic en una barra para abrir el proyecto."
+      filas=${filasOtros} ps=${otros} />
     <div class="rejilla dos">
       <div class="panel"><h3>Proyectos por dirección y estado</h3>
         <${Grafico} tipo="bar" datos=${porDir} opciones=${{ scales: { x: { stacked: true }, y: { stacked: true, ticks: { precision: 0 } } }, plugins: { legend: { position: 'bottom' } } }} /></div>
