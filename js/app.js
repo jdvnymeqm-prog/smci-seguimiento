@@ -61,8 +61,10 @@ function AvisoSinRed() {
 // Recordatorio: desde el día de corte, si aún no se descargó el respaldo del mes
 function faltaRespaldoMes(config) {
   const hoy = new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);   // hora de La Paz
-  const ult = config.respaldo_mensual?.fecha ? new Date(Date.parse(config.respaldo_mensual.fecha) - 4 * 3600000).toISOString().slice(0, 7) : '';
-  return ult !== hoy.slice(0, 7) && Number(hoy.slice(8)) >= Number(config.dia_corte ?? 25);
+  const mesDe = r => r?.fecha ? new Date(Date.parse(r.fecha) - 4 * 3600000).toISOString().slice(0, 7) : '';
+  const hecho = [config.respaldo_mensual, config.respaldo_drive].some(r => mesDe(r) === hoy.slice(0, 7));
+  // Aviso desde el día de corte; si el respaldo automático de Drive ya corrió este mes, no avisa
+  return !hecho && Number(hoy.slice(8)) >= Number(config.dia_corte ?? 25);
 }
 
 function ruta() {
@@ -266,7 +268,7 @@ function Aplicacion({ sesion }) {
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
-      <main class="contenido">${esAdmin && faltaRespaldoMes(cat.config) && html`<${Aviso} tipo="atencion">💾 Falta el respaldo de este mes en la computadora. <a href="#/admin?pestana=config">Descargarlo ahora</a><//>`}${(r.vista !== 'tablero' || location.hash.includes('?')) && html`<div class="barra-atras"><button type="button" class="btn-atras" onClick=${atras} title="Volver a la pantalla anterior">← Atrás</button></div>`}${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
+      <main class="contenido">${esAdmin && faltaRespaldoMes(cat.config) && html`<${Aviso} tipo="atencion">💾 Falta el respaldo de este mes (no hay respaldo en Drive ni en la computadora). <a href="#/admin?pestana=config">Descargarlo ahora</a><//>`}${(r.vista !== 'tablero' || location.hash.includes('?')) && html`<div class="barra-atras"><button type="button" class="btn-atras" onClick=${atras} title="Volver a la pantalla anterior">← Atrás</button></div>`}${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
         🔒 ${esAdmin ? 'Usted bloqueó los cambios para todos los usuarios.' : 'El administrador bloqueó temporalmente los cambios. Puede consultar la información, pero no enviar ni validar cambios.'}
         ${cat.config.bloqueo_cambios.motivo ? ' Motivo: ' + cat.config.bloqueo_cambios.motivo + '.' : ''}
         ${esAdmin ? html` <a href="#/admin">Desbloquear</a>` : ''}<//>`}${vista}</main>
