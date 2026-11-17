@@ -355,7 +355,7 @@ function RespaldoMensual({ ctx }) {
   const enCurso = estado && estado.texto;
   return html`<div class="panel" style="background:#f3f8fa;border-color:#c9dde6">
     <h3 style="margin-top:0">☁️ Respaldo automático en Google Drive</h3>
-    <p class="ayuda">Cada último día del mes a las 22:00 se copia todo a la carpeta <b>SMCI</b> de su Drive, en una carpeta «Mes DD-MM-AAAA» con una subcarpeta por código de proyecto. Lo hace el script «Respaldo SMCI» de Google Apps Script (instrucciones en <code>respaldo-drive/LEAME.md</code>).</p>
+    <p class="ayuda">Cada último día del mes (21:37, hora de La Paz) una tarea programada copia todo a la carpeta <b>SMCI</b> de Google Drive del administrador, en una carpeta «Mes DD-MM-AAAA» con la hoja «Resumen de proyectos SMCI» y un documento por código de proyecto, separados en «dentro» y «fuera» del plan de gobierno.</p>
     <p>Último respaldo en Drive: <b>${drive?.fecha ? fechaHora(drive.fecha) + ' · carpeta «' + drive.carpeta + '»' : 'todavía ninguno'}</b>
       ${drive?.url && html` · <a href=${drive.url} target="_blank" rel="noopener">Abrir en Drive</a>`}</p>
     <hr style="border:0;border-top:1px solid var(--borde);margin:1rem 0" />
