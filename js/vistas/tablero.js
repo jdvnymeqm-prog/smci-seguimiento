@@ -125,7 +125,7 @@ export function Tablero({ ctx }) {
         <${Grafico} tipo="bar" datos=${porUni} opciones=${{ indexAxis: 'y', scales: { x: { min: 0, max: 100, position: 'bottom', title: { display: true, text: '% avance' } }, x2: { position: 'top', grid: { drawOnChartArea: false }, ticks: { precision: 0 } } }, plugins: { legend: { position: 'bottom' } } }} /></div>
     </div>
     <div class="panel">
-      <h3>Proyectos estratégicos · Eje III Ciudad Inteligente (${est.length})</h3>
+      <h3>Proyectos dentro del plan de gobierno · Eje III Ciudad Inteligente (${est.length})</h3>
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
         <tbody>${est.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
@@ -138,10 +138,10 @@ export function Tablero({ ctx }) {
           <td><${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} /></td>
           <td><${QueFalta} items=${p.que_falta} obs=${p.observaciones_falta} max=${3} /></td>
         </tr>`)}</tbody>
-      </table>${!est.length && html`<div class="vacio">No hay proyectos estratégicos con estos filtros.</div>`}</div>
+      </table>${!est.length && html`<div class="vacio">No hay proyectos dentro del plan de gobierno con estos filtros.</div>`}</div>
     </div>
     <div class="panel">
-      <h3>Proyectos (${otros.length})</h3>
+      <h3>Proyectos fuera del plan de gobierno (${otros.length})</h3>
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
         <tbody>${otros.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>

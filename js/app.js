@@ -220,8 +220,8 @@ function Aplicacion({ sesion }) {
   const unidad = cat.unidades.find(u => u.id === perfil.unidad_id);
   const items = [
     ['tablero', perfil.rol === 'admin' ? 'Consolidado SMCI' : 'Tablero'],
-    ['estrategicos', 'Proyectos estratégicos'],
-    ['proyectos', 'Proyectos'],
+    ['estrategicos', 'Proyectos dentro del plan de gobierno'],
+    ['proyectos', 'Proyectos fuera del plan de gobierno'],
     ...(perfil.unidad_id || perfil.rol === 'director' ? [['mi-unidad', perfil.rol === 'director' ? 'Mi dirección' : 'Mi unidad']] : []),
     ...(perfil.rol === 'admin' || perfil.rol === 'jefe' || perfil.rol === 'director' ? [['validaciones', 'Validaciones']] : []),
     ...(perfil.rol === 'admin' ? [['admin', 'Administración']] : []),

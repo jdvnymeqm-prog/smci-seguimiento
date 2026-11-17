@@ -287,8 +287,8 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       <div class="ancho"><small class="ayuda"><b>Qué falta para completarlo</b> (se arma solo con las tareas pendientes)</small>
         <${QueFalta} items=${p.que_falta} max=${50} /></div>
       <label class="ancho">Observaciones sobre lo que falta<textarea value=${d.observaciones_falta || ''} onInput=${set('observaciones_falta')} /></label>
-      <label class="ancho">Proyecto estratégico (Eje III Ciudad Inteligente)<select value=${d.codigo_estrategico || ''} onChange=${set('codigo_estrategico')}>
-        <option value="">— No es estratégico (va en «Otros proyectos») —</option>
+      <label class="ancho">Proyecto del plan de gobierno (Eje III Ciudad Inteligente)<select value=${d.codigo_estrategico || ''} onChange=${set('codigo_estrategico')}>
+        <option value="">— Fuera del plan de gobierno —</option>
         ${(cat.estrategicos || []).map(e => html`<option value=${e.codigo}>${e.tipo === 'programa' ? e.codigo + ' (programa ' + e.numeral + ')' : e.codigo} · ${e.nombre.slice(0, 80)}</option>`)}</select></label>
       <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.por_validar} onChange=${set('por_validar')} /> Marcado «Datos por revisar» (quite la marca cuando esté corregido)</label>
       ${d.por_validar && html`<label>Motivo<input value=${d.por_validar_motivo || ''} onInput=${set('por_validar_motivo')} /></label>`}
