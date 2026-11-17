@@ -1,4 +1,4 @@
-import { html, render, useState, useEffect, sb, ROLES, mensajeError } from './lib.js';
+import { html, render, useState, useEffect, sb, ROLES, mensajeError, atras } from './lib.js';
 import { CONFIG } from './config.js';
 import { Aviso, Modal, ClaveInput } from './componentes.js';
 
@@ -59,7 +59,7 @@ function AvisoSinRed() {
 }
 
 function ruta() {
-  const r = (location.hash || '#/tablero').slice(2).split('/');
+  const r = (location.hash || '#/tablero').slice(2).split('?')[0].split('/');
   return { vista: r[0] || 'tablero', id: r[1] || null };
 }
 
@@ -176,14 +176,15 @@ function Aplicacion({ sesion }) {
   const [menu, setMenu] = useState(false);
 
   async function cargarCatalogos() {
-    const [p, d, u, pe, c] = await Promise.all([
+    const [p, d, u, pe, c, es] = await Promise.all([
       sb.from('perfiles').select('*').eq('id', sesion.user.id).single(),
       sb.from('direcciones').select('*').order('orden'),
       sb.from('unidades').select('*').order('orden'),
       sb.from('personas').select('id,nombre,cargo,unidad_id,direccion_id,activa').order('nombre'),
       sb.from('config').select('*'),
+      sb.from('estrategicos').select('*').order('orden'),
     ]);
-    const e = p.error || d.error || u.error || pe.error || c.error;
+    const e = p.error || d.error || u.error || pe.error || c.error || es.error;
     if (e) { setErr(mensajeError(e)); return; }
     if (p.data && p.data.estado_acceso && p.data.estado_acceso !== 'aprobado') { setPerfil(p.data); setCat('pendiente'); return; }
     if (!p.data.activo) { setErr('Su usuario está desactivado. Consulte con el administrador.'); return; }
@@ -192,13 +193,15 @@ function Aplicacion({ sesion }) {
     u.data.sort((a, b) => (ordenDir[a.direccion_id] - ordenDir[b.direccion_id]) || (a.orden - b.orden));
     setPerfil(p.data);
     setCat({
-      direcciones: d.data, unidades: u.data, personas: pe.data, config,
+      direcciones: d.data, unidades: u.data, personas: pe.data, config, estrategicos: es.data,
       todasDirecciones: d.data, todasUnidades: u.data,
     });
   }
   useEffect(() => { cargarCatalogos(); }, []);
   useEffect(() => {
-    const f = () => { setR(ruta()); setMenu(false); window.scrollTo(0, 0); };
+    // Cambiar de pestaña (solo cambia «?…») no sube la página; cambiar de pantalla sí
+    let antes = location.hash.split('?')[0];
+    const f = () => { const ahora = location.hash.split('?')[0]; setR(ruta()); setMenu(false); if (ahora !== antes) window.scrollTo(0, 0); antes = ahora; };
     addEventListener('hashchange', f); return () => removeEventListener('hashchange', f);
   }, []);
 
@@ -249,7 +252,7 @@ function Aplicacion({ sesion }) {
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
-      <main class="contenido">${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
+      <main class="contenido">${(r.vista !== 'tablero' || location.hash.includes('?')) && html`<div class="barra-atras"><button type="button" class="btn-atras" onClick=${atras} title="Volver a la pantalla anterior">← Atrás</button></div>`}${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
         🔒 ${esAdmin ? 'Usted bloqueó los cambios para todos los usuarios.' : 'El administrador bloqueó temporalmente los cambios. Puede consultar la información, pero no enviar ni validar cambios.'}
         ${cat.config.bloqueo_cambios.motivo ? ' Motivo: ' + cat.config.bloqueo_cambios.motivo + '.' : ''}
         ${esAdmin ? html` <a href="#/admin">Desbloquear</a>` : ''}<//>`}${vista}</main>

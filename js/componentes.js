@@ -128,7 +128,7 @@ export function aplicarFiltros(lista, f, reportesMes) {
     (!f.unidad || (f.unidad === '__sin' ? !p.unidad_id : p.unidad_id === f.unidad)) &&
     (!f.responsable || p.responsable_id === f.responsable) &&
     (!f.estado || p.estado === f.estado) &&
-    (!f.texto || norm(p.codigo + ' ' + p.nombre).includes(norm(f.texto))));
+    (!f.texto || norm(p.codigo + ' ' + (p.codigo_estrategico || '') + ' ' + (p.codigo_gobierno || '') + ' ' + p.nombre).includes(norm(f.texto))));
 }
 
 export function describirFiltros(f, cat) {
@@ -160,7 +160,8 @@ export function resumen(lista) {
 
 // Columnas de exportación de proyectos (comunes a tablero y lista)
 export const COLUMNAS_PROYECTO = [
-  { titulo: 'Código', campo: 'codigo', ancho: 10 },
+  { titulo: 'Código estratégico', valor: p => p.codigo_estrategico || '', ancho: 13 },
+  { titulo: 'Código SMCI', valor: p => p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, ancho: 10 },
   { titulo: 'Cód. gobierno', campo: 'codigo_gobierno', ancho: 10 },
   { titulo: 'Proyecto', campo: 'nombre', ancho: 40 },
   { titulo: 'Dirección', campo: 'direccion_sigla', ancho: 8 },

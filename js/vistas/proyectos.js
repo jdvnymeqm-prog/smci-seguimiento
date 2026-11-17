@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios } from '../lib.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, usePestana } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
@@ -9,6 +9,7 @@ export function ListaProyectos({ ctx }) {
   const [meses, setMeses] = useState([]);
   const [repMes, setRepMes] = useState(null);
   const [nuevo, setNuevo] = useState(false);
+  const [pest, setPest] = usePestana('pestana', 'estrategicos');
   const [err, setErr] = useState('');
 
   const cargar = () => sb.from('v_proyectos').select('*').order('codigo')
@@ -16,7 +17,11 @@ export function ListaProyectos({ ctx }) {
   useEffect(() => { cargar(); cargarMeses().then(setMeses); }, []);
   useEffect(() => { cargarReportesMes(f.mes).then(setRepMes); }, [f.mes]);
 
-  const filtrada = useMemo(() => lista ? aplicarFiltros(lista, f, repMes) : [], [lista, f, repMes]);
+  const todos = useMemo(() => lista ? aplicarFiltros(lista, f, repMes) : [], [lista, f, repMes]);
+  const esEst = pest === 'estrategicos';
+  // Sin repetir: lo estratégico va solo en su pestaña; «Otros» es lo que no tiene código del Eje III
+  const filtrada = todos.filter(p => esEst ? !!p.codigo_estrategico : !p.codigo_estrategico);
+  const nEst = lista ? lista.filter(p => p.codigo_estrategico).length : 0;
   const puedeCrear = !bloqueoCambios(cat, perfil) && (perfil.rol === 'admin' || ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.unidad_id)
     || (perfil.rol === 'director' && perfil.puede_editar));
 
@@ -26,45 +31,84 @@ export function ListaProyectos({ ctx }) {
   // Agrupación Dirección → Unidad (incluye "Por validar")
   const grupos = cat.todasDirecciones.map(d => ({
     d,
-    unis: [...cat.todasUnidades.filter(u => u.direccion_id === d.id), { id: null, sigla: 'Por validar', nombre: 'Sin unidad asignada' }]
+    unis: [...cat.todasUnidades.filter(u => u.direccion_id === d.id), { id: null, sigla: 'Sin unidad', nombre: 'Unidad por asignar' }]
       .map(u => ({ u, ps: filtrada.filter(p => p.direccion_id === d.id && (p.unidad_id || null) === u.id) }))
       .filter(g => g.ps.length),
   })).filter(g => g.unis.length);
 
   return html`
     <div class="encabezado">
-      <div><h1>Proyectos</h1><p>${filtrada.length} de ${lista.length} proyectos, agrupados por dirección y unidad</p></div>
+      <div><h1>Proyectos</h1><p>${esEst
+        ? `Proyectos estratégicos del Eje III «Ciudad Inteligente» (E3P23 a E3P28): ${filtrada.length} de ${nEst}, agrupados por programa y proyecto estratégico`
+        : `Otros proyectos de la Secretaría: ${filtrada.length} de ${lista.length - nEst}, agrupados por dirección y unidad`}</p></div>
       <div class="acciones">
         ${puedeCrear && html`<button class="prim" onClick=${() => setNuevo(true)}>+ Nuevo proyecto</button>`}
-        <button onClick=${() => exportarExcel('proyectos_smci', COLUMNAS_PROYECTO, filtrada, 'Proyectos')}>Exportar Excel</button>
-        <button onClick=${() => exportarPDF('Lista de proyectos', describirFiltros(f, cat), COLUMNAS_PROYECTO, filtrada, 'proyectos_smci')}>Exportar PDF</button>
+        <button onClick=${() => exportarExcel(esEst ? 'proyectos_estrategicos' : 'otros_proyectos', esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'Estratégicos' : 'Otros proyectos')}>Exportar Excel</button>
+        <button onClick=${() => exportarPDF(esEst ? 'Proyectos estratégicos · Eje III Ciudad Inteligente' : 'Otros proyectos', describirFiltros(f, cat), esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'proyectos_estrategicos' : 'otros_proyectos')}>Exportar PDF</button>
       </div>
     </div>
+    <div class="tabs">
+      <button class=${esEst ? 'activo' : ''} onClick=${() => setPest('estrategicos')}>⭐ Proyectos estratégicos · Eje III (${nEst})</button>
+      <button class=${!esEst ? 'activo' : ''} onClick=${() => setPest('otros')}>Otros proyectos (${lista.length - nEst})</button></div>
     <${Filtros} f=${f} setF=${setF} cat=${cat} meses=${meses} conTexto=${true} />
-    <div class="tabla-env"><table>
+    ${esEst ? html`<${TablaEstrategicos} ps=${filtrada} cat=${cat} perfil=${perfil} />` : html`<div class="tabla-env"><table>
       <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
         <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
       <tbody>${grupos.map(g => html`
         <tr class="grupo-dir"><td colspan="10">${g.d.sigla} · ${g.d.nombre}${!g.d.activa ? ' (inactiva)' : ''}</td></tr>
         ${g.unis.map(x => html`
           <tr class="grupo-uni"><td colspan="10">${x.u.sigla} · ${x.u.nombre} <span class="pill">${x.ps.length}</span></td></tr>
-          ${x.ps.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-            <td class="nowrap"><b>${p.codigo}</b>${p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}</td>
-            <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
-              ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}</td>
-            <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
-            <td><${Estado} e=${p.estado} /></td>
-            <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
-            <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>
-            <td class="nowrap">${fecha(p.fecha_entrega_vigente)}</td>
-            <td class="num">${p.n_reprogramaciones}</td>
-            <td><${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} /></td>
-            <td><${QueFalta} items=${p.que_falta} obs=${p.observaciones_falta} /></td>
-          </tr>`)}`)}`)}
+          ${x.ps.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} />`)}`)}`)}
       </tbody></table>
       ${!filtrada.length && html`<div class="vacio">No hay proyectos con estos filtros.</div>`}
-    </div>
+    </div>`}
     ${nuevo && html`<${NuevoProyecto} ctx=${ctx} lista=${lista} onCerrar=${() => setNuevo(false)} onCreado=${id => { location.hash = '#/proyecto/' + id; }} />`}`;
+}
+
+const COLS_EST = [{ titulo: 'Programa', valor: p => p.estrategico_programa || '', ancho: 9 }, ...COLUMNAS_PROYECTO];
+
+// Fila de proyecto (misma estructura en las dos pestañas): código estratégico arriba y código SMCI debajo
+function FilaProyecto({ p, perfil }) {
+  return html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
+    <td class="nowrap">${p.codigo_estrategico
+      ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`
+      : html`<b>${p.codigo}</b>${p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
+    <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
+      ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}
+      ${p.codigo_estrategico && html`<br/><span class="ayuda">${p.unidad_sigla || p.direccion_sigla || ''}</span>`}</td>
+    <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
+    <td><${Estado} e=${p.estado} /></td>
+    <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
+    <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>
+    <td class="nowrap">${fecha(p.fecha_entrega_vigente)}</td>
+    <td class="num">${p.n_reprogramaciones}</td>
+    <td><${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} /></td>
+    <td><${QueFalta} items=${p.que_falta} obs=${p.observaciones_falta} /></td>
+  </tr>`;
+}
+
+// Pestaña de estratégicos: Programa (E3P23…E3P28) → Proyecto estratégico (E3Pxx-PROYn) → proyectos
+function TablaEstrategicos({ ps, cat, perfil }) {
+  const E = cat.estrategicos || [];
+  const prom = xs => xs.length ? Math.round(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length * 10) / 10 : null;
+  const programas = E.filter(e => e.tipo === 'programa').map(pr => {
+    const delPrograma = ps.filter(p => p.estrategico_programa === pr.codigo);
+    const grupos = [
+      ...E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo).map(e => ({ e, xs: delPrograma.filter(p => p.codigo_estrategico === e.codigo) })),
+      { e: { codigo: pr.codigo, numeral: pr.numeral, nombre: 'Otras acciones del programa (sin proyecto estratégico específico)' }, xs: delPrograma.filter(p => p.codigo_estrategico === pr.codigo), otras: true },
+    ].filter(g => g.xs.length);
+    return { pr, grupos, n: delPrograma.length, av: prom(delPrograma) };
+  }).filter(x => x.n);
+  return html`<div class="tabla-env"><table>
+    <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
+      <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
+    <tbody>${programas.map(x => html`
+      <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.n}</span> · avance promedio ${x.av} %</td></tr>
+      ${x.grupos.map(g => html`
+        <tr class="grupo-est"><td colspan="10">${g.otras ? g.e.nombre : html`<b>${g.e.codigo}</b> · ${g.e.numeral} ${g.e.nombre}`} <span class="pill">${g.xs.length}</span>${g.xs.length > 1 ? ` · avance promedio ${prom(g.xs)} %` : ''}</td></tr>
+        ${g.xs.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} />`)}`)}`)}
+    </tbody></table>
+    ${!ps.length && html`<div class="vacio">No hay proyectos estratégicos con estos filtros.</div>`}</div>`;
 }
 
 function siguienteCodigo(lista) {

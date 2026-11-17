@@ -87,6 +87,34 @@ export function leerMonto(txt) {
 export function sinTildes(s) { return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 export function norm(s) { return sinTildes(String(s || '')).toLowerCase().replace(/\s+/g, ' ').trim(); }
 
+// ---------- Navegación: pestañas en la dirección (#/vista/id?pestaña=x) para poder volver «Atrás» paso a paso ----------
+export function parametros() {
+  const q = (location.hash.split('?')[1] || '');
+  return Object.fromEntries(new URLSearchParams(q));
+}
+export function irConParametro(clave, valor) {
+  const [ruta] = location.hash.split('?');
+  const p = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (valor === null || valor === undefined || valor === '') p.delete(clave); else p.set(clave, valor);
+  const q = p.toString();
+  location.hash = (ruta || '#/tablero') + (q ? '?' + q : '');
+}
+// Pestaña guardada en la dirección: cada cambio queda en el historial del navegador
+export function usePestana(clave, inicial) {
+  const v = parametros()[clave] || inicial;
+  return [v, nuevo => { if (nuevo !== v) irConParametro(clave, nuevo === inicial ? null : nuevo); }];
+}
+let pasos = 0;
+addEventListener('hashchange', () => { pasos++; });
+export function atras() {
+  if (pasos > 0 && history.length > 1) { pasos -= 2; history.back(); }
+  else location.hash = '#/tablero';
+}
+
+// ---------- Código estratégico (Eje III) primero; el código SMCI debajo ----------
+export function codigoPrincipal(p) { return p.codigo_estrategico || p.codigo; }
+export function codigoSecundario(p) { return p.codigo_estrategico && p.codigo !== p.codigo_estrategico ? p.codigo : null; }
+
 // ---------- Validación: jefe de unidad o, si la unidad no tiene jefe, el director ----------
 export function puedeValidar(perfil, unidad) {
   if (!perfil || !perfil.activo) return false;
