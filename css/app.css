@@ -181,3 +181,6 @@ td.nowrap { white-space: nowrap; }
 .cod-smci { display: block; font-size: .78rem; color: var(--suave); margin-top: .1rem; white-space: nowrap; }
 tr.grupo-prog td { background: #18465c; color: #fff; font-weight: 700; }
 tr.grupo-est td { background: #e8f0f3; font-weight: 600; }
+tr.est-varios td { background: #f6f9fa; }
+tr.sub td:first-child { padding-left: 1.6rem; }
+tr.sub td { font-size: .9rem; }
