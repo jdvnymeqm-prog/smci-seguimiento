@@ -1,5 +1,10 @@
 import { html, useState, useEffect, ESTADOS, ESTADO_CLASE, fecha, pct, norm, mesActualISO, nombreMes, aISO, miles, leerMonto } from './lib.js';
 
+// Código del proyecto: numeral estratégico arriba y código SMCI debajo
+export const Codigo = ({ p }) => p.codigo_estrategico
+  ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`
+  : html`<b>${p.codigo}</b>`;
+
 // Campo de contraseña con botón para mostrarla u ocultarla
 export function ClaveInput({ value, onInput, autocomplete, required }) {
   const [ver, setVer] = useState(false);

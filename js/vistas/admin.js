@@ -1,4 +1,4 @@
-import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, exportarPDF, mensajeError, usePestana } from '../lib.js';
+import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, exportarPDF, mensajeError, usePestana, codigoTexto } from '../lib.js';
 import { Aviso, Modal, Estado, FechaInput } from '../componentes.js';
 import { Importador } from './importador.js';
 import { TIPOS, CAMPOS } from './validaciones.js';
@@ -194,12 +194,12 @@ function HistorialUsuario({ u, desde, hasta, periodo, area, onVolver }) {
         .or(`creado_por.eq.${u.id},revisado_por.eq.${u.id}`).order('creado_en', { ascending: false }).limit(LIM);
       if (desde) { b = b.gte('creado_en', iniDia(desde)); }
       if (hasta) { b = b.lte('creado_en', finDia(hasta)); }
-      const [rb, rm, rp] = await Promise.all([b, m, sb.from('proyectos').select('id,codigo,nombre')]);
+      const [rb, rm, rp] = await Promise.all([b, m, sb.from('proyectos').select('id,codigo,codigo_estrategico,nombre')]);
       const e = rb.error || rm.error || rp.error;
       if (e) return setErr(mensajeError(e));
       const proy = Object.fromEntries(rp.data.map(p => [p.id, p]));
       const enRango = f => (!desde || f >= iniDia(desde)) && (!hasta || f <= finDia(hasta));
-      const cod = id => proy[id]?.codigo || '';
+      const cod = id => proy[id] ? codigoTexto(proy[id]) : '';
       const nom = id => proy[id]?.nombre || '';
       const res = [];
       for (const x of rb.data) res.push({

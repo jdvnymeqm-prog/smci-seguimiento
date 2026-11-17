@@ -1,7 +1,7 @@
 // Propuestas de cambio: las unidades proponen, el jefe de unidad valida (se aplica) o rechaza.
 // Lo validado queda cerrado; nueva información sobre el mismo dato después de 72 h,
 // o antes con un permiso de corrección del administrador.
-import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar, bloqueoCambios, usePestana, codigoPrincipal } from '../lib.js';
+import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar, bloqueoCambios, usePestana, codigoPrincipal, codigoTexto } from '../lib.js';
 import { Aviso, Modal } from '../componentes.js';
 
 export const TIPOS = {
@@ -75,7 +75,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   const nombreProy = m => m.proyectos ? html`<a href=${'#/proyecto/' + m.proyecto_id}><b>${codigoPrincipal(m.proyectos)}</b></a> ${m.proyectos.nombre}`
     : html`<b>${m.datos?.codigo || ''}</b> ${m.datos?.nombre || ''} <span class="etiqueta">Nuevo</span>`;
   const cols = [
-    { titulo: 'Proyecto', valor: m => m.proyectos?.codigo || m.datos?.codigo }, { titulo: 'Unidad', valor: m => uni(m.unidad_id) },
+    { titulo: 'Proyecto', valor: m => m.proyectos ? codigoTexto(m.proyectos) : m.datos?.codigo }, { titulo: 'Unidad', valor: m => uni(m.unidad_id) },
     { titulo: 'Tipo', valor: m => TIPOS[m.tipo] }, { titulo: 'Propuesto por', campo: 'creado_por_nombre' }, { titulo: 'Fecha', valor: m => fechaHora(m.creado_en) },
     { titulo: 'Estado', valor: m => ESTADO_TXT[m.estado] }, { titulo: 'Revisado por', campo: 'revisado_por_nombre' }, { titulo: 'Revisado el', valor: m => fechaHora(m.revisado_en) },
     { titulo: 'Observación', campo: 'observacion', ancho: 40 },
@@ -101,7 +101,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
             </div></td></tr>
           ${abierta === m.id && html`<tr><td colspan=${ncol} style="background:#fbfcfc"><${Resumen} m=${m} cat=${cat} /></td></tr>`}`)}
         </tbody></table></div>`}
-    ${accion && html`<${Modal} titulo=${{ validar: 'Validar cambio', rechazar: 'Rechazar cambio', permiso: 'Permitir corrección' }[accion.tipo] + ' · ' + (accion.m.proyectos?.codigo || accion.m.datos?.codigo || '')}
+    ${accion && html`<${Modal} titulo=${{ validar: 'Validar cambio', rechazar: 'Rechazar cambio', permiso: 'Permitir corrección' }[accion.tipo] + ' · ' + (accion.m.proyectos ? codigoTexto(accion.m.proyectos) : accion.m.datos?.codigo || '')}
         onCerrar=${() => setAccion(null)} acciones=${html`<button onClick=${() => setAccion(null)}>Cancelar</button>
         <button class=${accion.tipo === 'rechazar' ? 'peligro' : 'prim'} onClick=${confirmar}>${{ validar: 'Validar y aplicar', rechazar: 'Rechazar', permiso: 'Otorgar permiso' }[accion.tipo]}</button>`}>
       <p><b>${TIPOS[accion.m.tipo]}</b> propuesto por <b>${accion.m.creado_por_nombre}</b> el ${fechaHora(accion.m.creado_en)}.</p>
