@@ -105,7 +105,7 @@ function TablaEstrategicos({ ps, cat, perfil }) {
     <tbody>${programas.map(x => html`
       <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.n}</span> · avance promedio ${x.av} %</td></tr>
       ${x.grupos.map(g => html`
-        <tr class="grupo-est"><td colspan="10">${g.otras ? g.e.nombre : html`<b>${g.e.codigo}</b> · ${g.e.numeral} ${g.e.nombre}`} <span class="pill">${g.xs.length}</span>${g.xs.length > 1 ? ` · avance promedio ${prom(g.xs)} %` : ''}</td></tr>
+        <tr class="grupo-est"><td colspan="10">${g.otras ? g.e.nombre : html`<b>${g.e.codigo}</b> ${g.e.nombre}`} <span class="pill">${g.xs.length}</span>${g.xs.length > 1 ? ` · avance promedio ${prom(g.xs)} %` : ''}</td></tr>
         ${g.xs.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} />`)}`)}`)}
     </tbody></table>
     ${!ps.length && html`<div class="vacio">No hay proyectos estratégicos con estos filtros.</div>`}</div>`;
