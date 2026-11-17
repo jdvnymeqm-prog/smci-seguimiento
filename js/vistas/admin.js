@@ -2,10 +2,11 @@ import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, 
 import { Aviso, Modal, Estado, FechaInput } from '../componentes.js';
 import { Importador } from './importador.js';
 import { TIPOS, CAMPOS } from './validaciones.js';
+import { respaldoMensual, nombreCarpetaMes, puedeEscribirCarpeta } from '../respaldo_mensual.js';
 
 export function Admin({ ctx }) {
   const [tab] = usePestana('pestana', 'usuarios');
-  const tabs = [['usuarios', 'Usuarios y roles'], ['actividad', 'Actividad por usuario'], ['estructura', 'Direcciones y unidades'], ['bloqueo', '🔒 Bloqueo de cambios'], ['config', 'Fecha de corte y respaldos'],
+  const tabs = [['usuarios', 'Usuarios y roles'], ['actividad', 'Actividad por usuario'], ['estructura', 'Direcciones y unidades'], ['bloqueo', '🔒 Bloqueo de cambios'], ['config', 'Respaldos y fecha de corte'],
     ['carga', 'Carga inicial'], ['catalogos', 'Catálogos']];
   return html`
     <div class="encabezado"><div><h1>Administración</h1><p>Solo el administrador ve esta sección. Todos los cambios quedan en la bitácora.</p></div></div>
@@ -337,6 +338,33 @@ function Bloqueo({ ctx }) {
 }
 
 // ---------------------------------------------------------------------
+// Respaldo mensual a la computadora (carpeta «Mes DD-MM-AAAA» en el Escritorio)
+function RespaldoMensual({ ctx }) {
+  const ultimo = ctx.cat.config.respaldo_mensual;
+  const [estado, setEstado] = useState(null);   // { texto, hechos, total } | { fin } | { err }
+  async function correr() {
+    setEstado({ texto: 'Iniciando…' });
+    try {
+      const r = await respaldoMensual(ctx, (texto, hechos, total) => setEstado({ texto, hechos, total }));
+      setEstado({ fin: r }); ctx.recargar();
+    } catch (e) {
+      setEstado(e && e.name === 'AbortError' ? null : { err: mensajeError(e) });
+    }
+  }
+  const enCurso = estado && estado.texto;
+  return html`<div class="panel" style="background:#f3f8fa;border-color:#c9dde6">
+    <h3 style="margin-top:0">💾 Respaldo mensual a la computadora</h3>
+    <p class="ayuda">Descarga todo en una carpeta <b>«${nombreCarpetaMes()}»</b>: el Excel con toda la información, el respaldo de la base
+      y, por cada proyecto, <b>Dirección / Unidad / Código – Proyecto</b> con sus datos y sus evidencias.
+      ${puedeEscribirCarpeta() ? 'Al pulsar el botón, elija el Escritorio: la carpeta se crea ahí.' : 'Este navegador descarga un archivo ZIP; para guardar directamente en el Escritorio use Chrome o Edge en la computadora.'}</p>
+    <p>Último respaldo mensual: <b>${ultimo?.fecha ? fechaHora(ultimo.fecha) + ' · carpeta «' + ultimo.carpeta + '»' : 'nunca'}</b></p>
+    <button class="prim" disabled=${!!enCurso} onClick=${correr}>${enCurso ? 'Descargando…' : '⬇ Descargar respaldo del mes'}</button>
+    ${enCurso && html`<p class="ayuda" style="margin-top:.5rem">${estado.texto}${estado.total ? ` (${Math.round(100 * estado.hechos / estado.total)} %)` : ''}. No cierre esta pestaña.</p>`}
+    ${estado?.fin && html`<${Aviso} tipo="ok">Respaldo listo${estado.fin.zip ? ' (archivo ZIP en Descargas)' : ''}: carpeta «${estado.fin.carpeta}» con ${estado.fin.proyectos} proyectos y ${estado.fin.archivos} archivos de evidencia${estado.fin.enlaces ? ` (más ${estado.fin.enlaces} evidencias que son enlaces, anotados en cada proyecto)` : ''}.${estado.fin.fallidos.length ? ` ${estado.fin.fallidos.length} archivos no se pudieron descargar; están listados en la carpeta.` : ''}<//>`}
+    ${estado?.err && html`<${Aviso} tipo="error">${estado.err}<//>`}
+  </div>`;
+}
+
 function Configuracion({ ctx }) {
   const { cat, recargar } = ctx;
   const [corte, setCorte] = useState(cat.config.dia_corte ?? 25);
@@ -372,7 +400,8 @@ function Configuracion({ ctx }) {
   const grupos = [...new Set(resp.map(r => r.creado_en.slice(0, 16)))];
   return html`<div class="panel">
     <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
-    <h3>Fecha de corte mensual</h3>
+    <${RespaldoMensual} ctx=${ctx} />
+    <h3 style="margin-top:1.25rem">Fecha de corte mensual</h3>
     <p class="ayuda">Si una unidad no actualiza un proyecto en el mes hasta este día, el sistema lo marca «No reportada» (revisión diaria automática a las 00:05, hora de La Paz).</p>
     <div class="filtros"><label>Día de corte<input type="number" min="1" max="31" value=${corte} onInput=${e => setCorte(e.target.value)} /></label>
       <button class="prim" onClick=${guardarCorte}>Guardar</button></div>
