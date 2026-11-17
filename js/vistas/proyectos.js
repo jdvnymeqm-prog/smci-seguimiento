@@ -37,13 +37,13 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
 
   return html`
     <div class="encabezado">
-      <div><h1>${esEst ? 'Proyectos estratégicos' : 'Proyectos'}</h1><p>${esEst
-        ? 'Eje III «Ciudad Inteligente» · programas E3P23 a E3P28. Cada proyecto estratégico con su numeral; si también tiene código SMCI, va debajo.'
-        : `Proyectos de la Secretaría que no son proyectos estratégicos del Eje III: ${filtrada.length} de ${lista.length - nEst}, agrupados por dirección y unidad.`}</p></div>
+      <div><h1>${esEst ? 'Proyectos dentro del plan de gobierno' : 'Proyectos fuera del plan de gobierno'}</h1><p>${esEst
+        ? 'Proyectos estratégicos del Eje III «Ciudad Inteligente» · programas E3P23 a E3P28. Cada proyecto con su numeral; si también tiene código SMCI, va debajo.'
+        : `Proyectos de la Secretaría que no forman parte del plan de gobierno (Eje III): ${filtrada.length} de ${lista.length - nEst}, agrupados por dirección y unidad.`}</p></div>
       <div class="acciones">
         ${puedeCrear && html`<button class="prim" onClick=${() => setNuevo(true)}>+ Nuevo proyecto</button>`}
-        <button onClick=${() => exportarExcel(esEst ? 'proyectos_estrategicos' : 'otros_proyectos', esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'Estratégicos' : 'Otros proyectos')}>Exportar Excel</button>
-        <button onClick=${() => exportarPDF(esEst ? 'Proyectos estratégicos · Eje III Ciudad Inteligente' : 'Otros proyectos', describirFiltros(f, cat), esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'proyectos_estrategicos' : 'otros_proyectos')}>Exportar PDF</button>
+        <button onClick=${() => exportarExcel(esEst ? 'proyectos_dentro_plan_gobierno' : 'proyectos_fuera_plan_gobierno', esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'Dentro del plan' : 'Fuera del plan')}>Exportar Excel</button>
+        <button onClick=${() => exportarPDF(esEst ? 'Proyectos dentro del plan de gobierno · Eje III Ciudad Inteligente' : 'Proyectos fuera del plan de gobierno', describirFiltros(f, cat), esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'proyectos_dentro_plan_gobierno' : 'proyectos_fuera_plan_gobierno')}>Exportar PDF</button>
       </div>
     </div>
     <${Filtros} f=${f} setF=${setF} cat=${cat} meses=${meses} conTexto=${true} />
@@ -118,7 +118,7 @@ function TablaEstrategicos({ ps, cat, perfil }) {
             celdaCodigo=${html`<span class="cod-smci">↳ ${p.codigo}</span>`} />`)}`;
       })}`)}
     </tbody></table>
-    ${!total && html`<div class="vacio">No hay proyectos estratégicos con estos filtros.</div>`}</div>`;
+    ${!total && html`<div class="vacio">No hay proyectos dentro del plan de gobierno con estos filtros.</div>`}</div>`;
 }
 
 function siguienteCodigo(lista) {
