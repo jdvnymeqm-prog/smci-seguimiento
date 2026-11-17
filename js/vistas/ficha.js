@@ -83,6 +83,7 @@ export function Ficha({ ctx, id }) {
       ${p.n_mod_pendientes} ${p.n_mod_pendientes === 1 ? 'modificación guardada está' : 'modificaciones guardadas están'} pendiente${p.n_mod_pendientes === 1 ? '' : 's'} de validación.
       ${['jefe', 'director', 'admin'].includes(perfil.rol) && html` <a href="#/validaciones">Ir a validaciones</a>`}<//>`}
     <${Aviso} tipo="error">${err}<//><${Aviso} tipo="ok">${ok}<//>
+    ${puedeCompletar(perfil, p, cat) && html`<${CompletarDatos} p=${p} ctx=${ctx} listo=${listo} fallo=${fallo} />`}
     <div class="tabs" role="tablist">${tabs.map(([k, t]) => html`<button role="tab" class=${tab === k ? 'activo' : ''} onClick=${() => setTab(k)}>${t}</button>`)}</div>
     ${tab === 'datos' && html`<${Datos} ...${h} />`}
     ${tab === 'tareas' && html`<${Tareas} ...${h} />`}
@@ -115,6 +116,57 @@ function BotonReprogramar({ titulo, actual, onGuardar, chico }) {
       </div>
       <p class="ayuda">Queda registrado quién reprogramó, cuándo, la fecha anterior y la nueva. La fecha original no cambia.</p>
     <//>`}`;
+}
+
+// ---------------------------------------------------------------------
+// Proyecto sin unidad: el personal de su dirección lo completa (unidad, responsable y fechas)
+export function puedeCompletar(perfil, p, cat) {
+  if (p.unidad_id || bloqueoCambios(cat, perfil) || !perfil.activo) return false;
+  if (perfil.rol === 'admin') return true;
+  return ['director', 'jefe', 'responsable'].includes(perfil.rol) && perfil.direccion_id === p.direccion_id;
+}
+
+function CompletarDatos({ p, ctx, listo, fallo }) {
+  const { perfil, cat } = ctx;
+  const esUnidad = perfil.rol === 'jefe' || perfil.rol === 'responsable';
+  const unidades = cat.unidades.filter(u => u.activa && u.direccion_id === p.direccion_id && (!esUnidad || u.id === perfil.unidad_id));
+  const [d, setD] = useState({ unidad_id: esUnidad ? perfil.unidad_id : (unidades.length === 1 ? unidades[0].id : ''),
+    responsable_id: p.responsable_id || '', nuevo: '', fecha_inicio: p.fecha_inicio || '', fecha_entrega: p.fecha_entrega_original || '' });
+  const [abierto, setAbierto] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  const personas = cat.personas.filter(x => x.activa !== false && x.unidad_id === d.unidad_id);
+  async function guardar() {
+    if (!d.unidad_id) return fallo({ message: 'Elija la unidad.' });
+    if (!d.responsable_id && !d.nuevo.trim()) return fallo({ message: 'Elija o escriba el nombre del responsable.' });
+    setOcupado(true);
+    const { error } = await sb.rpc('completar_proyecto', { p_id: p.id, p_unidad: d.unidad_id,
+      p_responsable: d.responsable_id && d.responsable_id !== '__nuevo' ? d.responsable_id : null,
+      p_responsable_nombre: d.responsable_id === '__nuevo' || !d.responsable_id ? d.nuevo.trim() || null : null,
+      p_fecha_inicio: d.fecha_inicio || null, p_fecha_entrega: d.fecha_entrega || null });
+    setOcupado(false);
+    if (error) return fallo(error);
+    await ctx.recargar();
+    listo('Datos completados. El proyecto ahora pertenece a su unidad y se actualiza como los demás.');
+  }
+  return html`<div class="panel" style="background:#fff8e6;border-color:#f0dc9c">
+    <h3>Este proyecto aún no tiene unidad ni responsable</h3>
+    <p class="ayuda">Pertenece a ${p.direccion_sigla}. ${esUnidad
+      ? 'Si su unidad está a cargo, asígnelo a su unidad e indique el responsable. Desde ese momento lo actualiza su unidad y su jefe valida los cambios.'
+      : 'Asígnelo a la unidad que estará a cargo e indique el responsable.'}</p>
+    ${!abierto ? html`<button class="prim" onClick=${() => setAbierto(true)}>Completar datos del proyecto</button>` : html`
+      <div class="form">
+        <label>Unidad a cargo<select value=${d.unidad_id} disabled=${esUnidad} onChange=${e => setD({ ...d, unidad_id: e.target.value, responsable_id: '' })}>
+          <option value="">Elegir…</option>${unidades.map(u => html`<option value=${u.id}>${u.sigla} · ${u.nombre}</option>`)}</select></label>
+        <label>Responsable<select value=${d.responsable_id} onChange=${e => setD({ ...d, responsable_id: e.target.value })}>
+          <option value="">Elegir…</option>${personas.map(x => html`<option value=${x.id}>${x.nombre}</option>`)}
+          <option value="__nuevo">Otra persona (escribir nombre)…</option></select></label>
+        ${(d.responsable_id === '__nuevo' || (!personas.length && !d.responsable_id)) && html`<label>Nombre completo del responsable<input value=${d.nuevo} onInput=${e => setD({ ...d, nuevo: e.target.value })} /></label>`}
+        ${!p.fecha_inicio && html`<label>Fecha de inicio (opcional)<${FechaInput} valor=${d.fecha_inicio} onCambio=${v => setD(x => ({ ...x, fecha_inicio: v }))} /></label>`}
+        ${!p.fecha_entrega_original && html`<label>Fecha de entrega (opcional)<${FechaInput} valor=${d.fecha_entrega} onCambio=${v => setD(x => ({ ...x, fecha_entrega: v }))} /></label>`}
+      </div>
+      <div class="acciones" style="margin-top:.75rem"><button onClick=${() => setAbierto(false)}>Cancelar</button>
+        <button class="prim" disabled=${ocupado} onClick=${guardar}>${ocupado ? 'Guardando…' : 'Guardar'}</button></div>`}
+  </div>`;
 }
 
 // ---------------------------------------------------------------------
