@@ -58,6 +58,13 @@ function AvisoSinRed() {
   return enLinea ? null : html`<div class="aviso atencion" style="margin:0;border-radius:0;text-align:center">Sin conexión a internet: los cambios no se guardarán hasta que vuelva la conexión.</div>`;
 }
 
+// Recordatorio: desde el día de corte, si aún no se descargó el respaldo del mes
+function faltaRespaldoMes(config) {
+  const hoy = new Date(Date.now() - 4 * 3600000).toISOString().slice(0, 10);   // hora de La Paz
+  const ult = config.respaldo_mensual?.fecha ? new Date(Date.parse(config.respaldo_mensual.fecha) - 4 * 3600000).toISOString().slice(0, 7) : '';
+  return ult !== hoy.slice(0, 7) && Number(hoy.slice(8)) >= Number(config.dia_corte ?? 25);
+}
+
 function ruta() {
   const r = (location.hash || '#/tablero').slice(2).split('?')[0].split('/');
   return { vista: r[0] || 'tablero', id: r[1] || null };
@@ -259,7 +266,7 @@ function Aplicacion({ sesion }) {
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
-      <main class="contenido">${(r.vista !== 'tablero' || location.hash.includes('?')) && html`<div class="barra-atras"><button type="button" class="btn-atras" onClick=${atras} title="Volver a la pantalla anterior">← Atrás</button></div>`}${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
+      <main class="contenido">${esAdmin && faltaRespaldoMes(cat.config) && html`<${Aviso} tipo="atencion">💾 Falta el respaldo de este mes en la computadora. <a href="#/admin?pestana=config">Descargarlo ahora</a><//>`}${(r.vista !== 'tablero' || location.hash.includes('?')) && html`<div class="barra-atras"><button type="button" class="btn-atras" onClick=${atras} title="Volver a la pantalla anterior">← Atrás</button></div>`}${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
         🔒 ${esAdmin ? 'Usted bloqueó los cambios para todos los usuarios.' : 'El administrador bloqueó temporalmente los cambios. Puede consultar la información, pero no enviar ni validar cambios.'}
         ${cat.config.bloqueo_cambios.motivo ? ' Motivo: ' + cat.config.bloqueo_cambios.motivo + '.' : ''}
         ${esAdmin ? html` <a href="#/admin">Desbloquear</a>` : ''}<//>`}${vista}</main>

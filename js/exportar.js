@@ -29,7 +29,7 @@ const iniDe = (x) => x.fecha_inicio || x.fecha_entrega_original || x.fecha_fin_o
 const finDe = (x) => x.fecha_entrega_vigente || x.fecha_fin_vigente || x.fecha_entrega_original || x.fecha_fin_original;
 
 // ---------------------------------------------------------------- Excel
-export async function exportarTodoExcel(proyectos, ctx, sufijo = '') {
+export async function exportarTodoExcel(proyectos, ctx, sufijo = '', devolver = false) {
   const ids = proyectos.map(p => p.id);
   const d = await todo(ids);
   const cod = Object.fromEntries(proyectos.map(p => [p.id, codigoTexto(p)]));
@@ -82,6 +82,7 @@ export async function exportarTodoExcel(proyectos, ctx, sufijo = '') {
     'Cambios': (x.resumen || []).map(c => `${c.campo}: ${c.antes ?? '—'} → ${c.ahora ?? '—'}`).join(' | ') })));
   if (ctx.perfil.rol === 'admin') hoja('Bitácora', d.bitacora.map(b => ({ 'Proyecto': cod[b.proyecto_id] || '', 'Fecha': fechaHora(b.creado_en), 'Usuario': b.usuario_nombre,
     'Registro': b.tabla, 'Acción': b.accion, 'Campo': b.campo, 'Antes': (b.valor_anterior || '').slice(0, 500), 'Ahora': (b.valor_nuevo || '').slice(0, 500) })));
+  if (devolver) return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   XLSX.writeFile(wb, `informacion_completa_smci${sufijo}_${hoyISO().split('-').reverse().join('-')}.xlsx`);
 }
 
