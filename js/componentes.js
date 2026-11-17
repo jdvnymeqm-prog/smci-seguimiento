@@ -1,8 +1,8 @@
-import { html, useState, useEffect, ESTADOS, ESTADO_CLASE, fecha, pct, norm, mesActualISO, nombreMes, aISO, miles, leerMonto } from './lib.js';
+import { html, useState, useEffect, ESTADOS, ESTADO_CLASE, fecha, pct, norm, mesActualISO, nombreMes, aISO, miles, leerMonto, codigoPrincipal } from './lib.js';
 
 // Código del proyecto: numeral estratégico arriba y código SMCI debajo
 export const Codigo = ({ p }) => p.codigo_estrategico
-  ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`
+  ? html`<span class="cod-est">${codigoPrincipal(p)}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`
   : html`<b>${p.codigo}</b>`;
 
 // Campo de contraseña con botón para mostrarla u ocultarla
@@ -165,7 +165,7 @@ export function resumen(lista) {
 
 // Columnas de exportación de proyectos (comunes a tablero y lista)
 export const COLUMNAS_PROYECTO = [
-  { titulo: 'Código estratégico', valor: p => p.codigo_estrategico || '', ancho: 13 },
+  { titulo: 'Código estratégico', valor: p => p.codigo_estrategico ? codigoPrincipal(p) : '', ancho: 13 },
   { titulo: 'Código SMCI', valor: p => p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, ancho: 10 },
   { titulo: 'Cód. gobierno', campo: 'codigo_gobierno', ancho: 10 },
   { titulo: 'Proyecto', campo: 'nombre', ancho: 40 },

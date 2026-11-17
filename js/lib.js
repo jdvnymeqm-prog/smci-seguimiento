@@ -112,7 +112,8 @@ export function atras() {
 }
 
 // ---------- Código estratégico (Eje III) primero; el código SMCI debajo ----------
-export function codigoPrincipal(p) { return p.codigo_estrategico || p.codigo; }
+export function numeralEstrategico(c) { const m = /^E3P(\d+)$/.exec(c || ''); return m ? m[1] : c; }
+export function codigoPrincipal(p) { return p.codigo_estrategico ? numeralEstrategico(p.codigo_estrategico) : p.codigo; }
 // En textos (PDF, Excel, títulos): «24.5» o «23.1 (SMCI-06)»
 export function codigoTexto(p) {
   if (!p) return '';

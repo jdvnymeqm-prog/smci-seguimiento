@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana, codigoTexto } from '../lib.js';
+import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana, codigoTexto, codigoPrincipal } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
 import { ListaPropuestas } from './validaciones.js';
 
@@ -51,7 +51,7 @@ export function Ficha({ ctx, id }) {
       <div class="ficha-cab">
         <div style="min-width:0;flex:1">
           <div class="acciones" style="margin-bottom:.3rem">${p.codigo_estrategico
-              ? html`<span class="pill" style="background:#18465c;color:#fff" title=${'Proyecto estratégico Eje III · ' + (p.estrategico_nombre || '')}>${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="pill">${p.codigo}</span>` : ''}`
+              ? html`<span class="pill" style="background:#18465c;color:#fff" title=${'Proyecto estratégico Eje III · ' + (p.estrategico_nombre || '')}>${codigoPrincipal(p)}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="pill">${p.codigo}</span>` : ''}`
               : html`<span class="pill">${p.codigo}</span>`}
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
             <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />

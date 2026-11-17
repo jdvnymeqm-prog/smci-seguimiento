@@ -1,6 +1,6 @@
 // Exportación completa: Excel con todas las hojas y PDF con diagrama de Gantt.
 // Respeta los permisos: cada usuario exporta solo lo que puede ver (el administrador, todo).
-import { sb, fecha, fechaHora, pct, bs, hoyISO, nombreMes, diasEntre, codigoTexto } from './lib.js';
+import { sb, fecha, fechaHora, pct, bs, hoyISO, nombreMes, diasEntre, codigoTexto, codigoPrincipal } from './lib.js';
 import { queFaltaTexto } from './componentes.js';
 
 const COLOR = { verde: [46, 125, 79], amarillo: [201, 138, 0], rojo: [192, 57, 43], gris: [138, 151, 158], sin_fecha: [138, 151, 158] };
@@ -38,7 +38,7 @@ export async function exportarTodoExcel(proyectos, ctx, sufijo = '') {
   const hoja = (nombre, filas) => { const ws = XLSX.utils.json_to_sheet(filas.length ? filas : [{ 'Sin datos': '' }]); XLSX.utils.book_append_sheet(wb, ws, nombre.slice(0, 31)); };
 
   hoja('Proyectos', proyectos.map(p => ({
-    'Código estratégico': p.codigo_estrategico || '', 'Código SMCI': p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, 'Cód. gobierno': p.codigo_gobierno || '', 'Proyecto': p.nombre, 'Dirección': p.direccion_sigla,
+    'Código estratégico': p.codigo_estrategico ? codigoPrincipal(p) : '', 'Código SMCI': p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, 'Cód. gobierno': p.codigo_gobierno || '', 'Proyecto': p.nombre, 'Dirección': p.direccion_sigla,
     'Unidad': p.unidad_sigla || 'Por validar', 'Responsable': p.responsable_nombre || '', 'Apoyo': p.apoyos_nombres || '',
     'Estado': p.estado, '% avance': Number(p.avance || 0), 'Inicio': fecha(p.fecha_inicio), 'Entrega original': fecha(p.fecha_entrega_original),
     'Entrega vigente': fecha(p.fecha_entrega_vigente), 'N.º reprogramaciones': p.n_reprogramaciones, 'Semáforo': p.semaforo,
