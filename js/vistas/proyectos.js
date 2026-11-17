@@ -87,16 +87,19 @@ function TablaEstrategicos({ ps, cat, perfil }) {
   const E = cat.estrategicos || [];
   const prom = xs => xs.length ? Math.round(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length * 10) / 10 : 0;
   const programas = E.filter(e => e.tipo === 'programa').map(pr => ({
-    pr, items: E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
+    pr, generales: ps.filter(p => p.codigo_estrategico === pr.codigo),
+    items: E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
       .map(e => ({ e, xs: ps.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length),
-  })).filter(x => x.items.length);
+  })).filter(x => x.items.length || x.generales.length);
   const smci = xs => xs.filter(p => p.codigo !== p.codigo_estrategico);
-  const total = programas.reduce((a, x) => a + x.items.length, 0);
+  const total = programas.reduce((a, x) => a + x.items.length + x.generales.length, 0);
   return html`<div class="tabla-env"><table class="tabla-est">
     <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
       <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
     <tbody>${programas.map(x => html`
-      <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.items.length} ${x.items.length === 1 ? 'proyecto' : 'proyectos'}</span></td></tr>
+      <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.items.length + x.generales.length} ${x.items.length + x.generales.length === 1 ? 'proyecto' : 'proyectos'}</span></td></tr>
+      ${x.generales.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil}
+        celdaCodigo=${html`<span class="cod-est">${x.pr.numeral}</span><span class="cod-smci">${p.codigo}</span>`} />`)}
       ${x.items.map(({ e, xs }) => {
         const codigos = smci(xs);
         const celdaCodigo = html`<span class="cod-est">${e.codigo}</span>${codigos.map(p => html`<span class="cod-smci">${p.codigo}</span>`)}`;

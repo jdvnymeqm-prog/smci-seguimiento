@@ -129,7 +129,7 @@ export function Tablero({ ctx }) {
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
         <tbody>${est.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-          <td class="nowrap">${p.codigo_estrategico ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}` : html`<b>${p.codigo}</b>`}<br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
+          <td class="nowrap"><${Codigo} p=${p} /><br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
           <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
           <td><${Estado} e=${p.estado} /></td>
           <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
@@ -145,7 +145,7 @@ export function Tablero({ ctx }) {
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
         <tbody>${otros.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-          <td class="nowrap">${p.codigo_estrategico ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}` : html`<b>${p.codigo}</b>`}<br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
+          <td class="nowrap"><${Codigo} p=${p} /><br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
           <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
           <td><${Estado} e=${p.estado} /></td>
           <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
