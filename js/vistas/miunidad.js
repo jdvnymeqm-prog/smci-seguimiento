@@ -6,11 +6,14 @@ export function MiUnidad({ ctx }) {
   const [ps, setPs] = useState(null);
   const [tareas, setTareas] = useState([]);
   const [err, setErr] = useState('');
+  const [sinUnidad, setSinUnidad] = useState([]);
   const esDirector = perfil.rol === 'director';
   const unidad = cat.unidades.find(u => u.id === perfil.unidad_id);
   const direccion = cat.direcciones.find(d => d.id === perfil.direccion_id);
 
   useEffect(() => {
+    if (perfil.direccion_id) sb.from('v_proyectos').select('*').is('unidad_id', null).eq('direccion_id', perfil.direccion_id).order('codigo')
+      .then(({ data }) => setSinUnidad(data || []));
     let q = sb.from('v_proyectos').select('*').order('fecha_entrega_vigente', { nullsFirst: false });
     q = esDirector ? q.eq('direccion_id', perfil.direccion_id) : q.eq('unidad_id', perfil.unidad_id);
     q.then(async ({ data, error }) => {
@@ -61,6 +64,12 @@ export function MiUnidad({ ctx }) {
       <div class="kpi ${ps.some(p => p.n_mod_pendientes) ? 'aviso' : ''}" style=${['jefe', 'director'].includes(perfil.rol) ? 'cursor:pointer' : ''} onClick=${() => ['jefe', 'director'].includes(perfil.rol) && (location.hash = '#/validaciones')}>
         <div class="v">${ps.reduce((a, p) => a + (p.n_mod_pendientes || 0), 0)}</div><div class="t">Modificaciones por validar${['jefe', 'director'].includes(perfil.rol) ? ' (clic para ver)' : ''}</div></div>
     </div>
+    ${sinUnidad.length > 0 && !esDirector && html`<div class="panel" style="background:#fff8e6;border-color:#f0dc9c"><h2>Proyectos de ${direccion?.sigla || 'su dirección'} sin unidad ni responsable (${sinUnidad.length})</h2>
+      <p class="ayuda">Si su unidad está a cargo de alguno, ábralo y use «Completar datos del proyecto».</p>
+      <${Lista} items=${sinUnidad} vacio="" /></div>`}
+    ${sinUnidad.length > 0 && esDirector && html`<div class="panel" style="background:#fff8e6;border-color:#f0dc9c"><h2>Proyectos sin unidad ni responsable (${sinUnidad.length})</h2>
+      <p class="ayuda">Ábralos y use «Completar datos del proyecto» para asignar la unidad y el responsable.</p>
+      <${Lista} items=${sinUnidad} vacio="" /></div>`}
     <div class="panel"><h2>Lo que debo actualizar este mes</h2>
       <p class="ayuda">Actualice cada proyecto (datos, tareas o reporte mensual) antes del ${fecha(fechaCorte)}. Si no, el sistema lo marcará «No reportada».</p>
       <${Lista} items=${porActualizar} vacio="Todo al día este mes." extra=${{ titulo: 'Última actualización', valor: p => fecha(p.ultima_actualizacion) }} /></div>
