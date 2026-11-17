@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana } from '../lib.js';
+import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana, codigoTexto } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
 import { ListaPropuestas } from './validaciones.js';
 
@@ -449,7 +449,7 @@ function NuevoReporte({ p, ctx, onCerrar, onGuardado }) {
     const { error } = await sb.from('reportes_mensuales').upsert({ proyecto_id: p.id, ...fila }, { onConflict: 'proyecto_id,periodo,ficha' }).select('id').single();
     error ? setErr(mensajeError(error)) : onGuardado('Reporte registrado.');
   }
-  return html`<${Modal} titulo=${'Reporte mensual · ' + p.codigo} onCerrar=${onCerrar} acciones=${html`
+  return html`<${Modal} titulo=${'Reporte mensual · ' + codigoTexto(p)} onCerrar=${onCerrar} acciones=${html`
       <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar reporte</button>`}>
     <${Aviso} tipo="error">${err}<//>
     <div class="form">
@@ -574,7 +574,7 @@ function exportarFichaPDF({ p, tareas, reprog, reportes }) {
   doc.setFontSize(8); doc.setTextColor(90);
   doc.text('GAMLP · Secretaría Municipal de Ciudad Inteligente · Ficha de proyecto', izq, y); y += 18;
   doc.setFontSize(14); doc.setTextColor(20);
-  doc.text(doc.splitTextToSize(`${p.codigo} · ${p.nombre}`, 515), izq, y); y += 30;
+  doc.text(doc.splitTextToSize(`${codigoTexto(p)} · ${p.nombre}`, 515), izq, y); y += 30;
   doc.autoTable({
     startY: y, theme: 'plain', styles: { fontSize: 8, cellPadding: 2 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 140 } },
     body: [

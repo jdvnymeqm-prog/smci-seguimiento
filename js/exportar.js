@@ -1,6 +1,6 @@
 // Exportación completa: Excel con todas las hojas y PDF con diagrama de Gantt.
 // Respeta los permisos: cada usuario exporta solo lo que puede ver (el administrador, todo).
-import { sb, fecha, fechaHora, pct, bs, hoyISO, nombreMes, diasEntre } from './lib.js';
+import { sb, fecha, fechaHora, pct, bs, hoyISO, nombreMes, diasEntre, codigoTexto } from './lib.js';
 import { queFaltaTexto } from './componentes.js';
 
 const COLOR = { verde: [46, 125, 79], amarillo: [201, 138, 0], rojo: [192, 57, 43], gris: [138, 151, 158], sin_fecha: [138, 151, 158] };
@@ -32,13 +32,13 @@ const finDe = (x) => x.fecha_entrega_vigente || x.fecha_fin_vigente || x.fecha_e
 export async function exportarTodoExcel(proyectos, ctx, sufijo = '') {
   const ids = proyectos.map(p => p.id);
   const d = await todo(ids);
-  const cod = Object.fromEntries(proyectos.map(p => [p.id, p.codigo]));
+  const cod = Object.fromEntries(proyectos.map(p => [p.id, codigoTexto(p)]));
   const per = id => (ctx.cat.personas.find(x => x.id === id) || {}).nombre || '';
   const wb = XLSX.utils.book_new();
   const hoja = (nombre, filas) => { const ws = XLSX.utils.json_to_sheet(filas.length ? filas : [{ 'Sin datos': '' }]); XLSX.utils.book_append_sheet(wb, ws, nombre.slice(0, 31)); };
 
   hoja('Proyectos', proyectos.map(p => ({
-    'Código': p.codigo, 'Cód. gobierno': p.codigo_gobierno || '', 'Proyecto': p.nombre, 'Dirección': p.direccion_sigla,
+    'Código estratégico': p.codigo_estrategico || '', 'Código SMCI': p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, 'Cód. gobierno': p.codigo_gobierno || '', 'Proyecto': p.nombre, 'Dirección': p.direccion_sigla,
     'Unidad': p.unidad_sigla || 'Por validar', 'Responsable': p.responsable_nombre || '', 'Apoyo': p.apoyos_nombres || '',
     'Estado': p.estado, '% avance': Number(p.avance || 0), 'Inicio': fecha(p.fecha_inicio), 'Entrega original': fecha(p.fecha_entrega_original),
     'Entrega vigente': fecha(p.fecha_entrega_vigente), 'N.º reprogramaciones': p.n_reprogramaciones, 'Semáforo': p.semaforo,
@@ -54,9 +54,9 @@ export async function exportarTodoExcel(proyectos, ctx, sufijo = '') {
   // Gantt en celdas: una columna por mes, ■ en los meses que dura cada proyecto o tarea
   const filasG = [];
   for (const p of proyectos) {
-    filasG.push({ nivel: 'Proyecto', codigo: p.codigo, nombre: p.nombre, ini: iniDe(p), fin: finDe(p), avance: p.avance, estado: p.estado });
+    filasG.push({ nivel: 'Proyecto', codigo: codigoTexto(p), nombre: p.nombre, ini: iniDe(p), fin: finDe(p), avance: p.avance, estado: p.estado });
     for (const t of d.tareas.filter(x => x.proyecto_id === p.id))
-      filasG.push({ nivel: '  Tarea', codigo: p.codigo, nombre: t.nombre, ini: iniDe(t), fin: finDe(t), avance: t.avance, estado: t.estado });
+      filasG.push({ nivel: '  Tarea', codigo: codigoTexto(p), nombre: t.nombre, ini: iniDe(t), fin: finDe(t), avance: t.avance, estado: t.estado });
   }
   const conF = filasG.filter(f => f.ini && f.fin);
   if (conF.length) {
@@ -142,18 +142,18 @@ export async function exportarTodoPDF(proyectos, ctx, subtitulo) {
   doc.text(`Avance promedio ${pct(+prom.toFixed(1))} · En ejecución ${cuenta('En ejecución')} · Concluidos ${cuenta('Concluida')} · No reportados ${cuenta('No reportada')} · Vencidos ${proyectos.filter(p => p.vencido).length} · Pendientes de validación ${proyectos.reduce((a, p) => a + (p.n_mod_pendientes || 0), 0)}`, 36, 128);
   doc.autoTable({
     startY: 142, head: [['Código', 'Proyecto', 'Unidad', 'Responsable', 'Estado', 'Avance', 'Entrega orig.', 'Entrega vig.', 'Reprog.', 'Por validar']],
-    body: proyectos.map(p => [p.codigo, p.nombre, p.unidad_sigla || 'Por validar', p.responsable_nombre || '', p.estado, pct(p.avance),
+    body: proyectos.map(p => [codigoTexto(p), p.nombre, p.unidad_sigla || 'Por validar', p.responsable_nombre || '', p.estado, pct(p.avance),
       fecha(p.fecha_entrega_original), fecha(p.fecha_entrega_vigente), String(p.n_reprogramaciones), String(p.n_mod_pendientes || 0)]),
     styles: { fontSize: 7, cellPadding: 2.5 }, headStyles: { fillColor: [24, 70, 92] }, columnStyles: { 1: { cellWidth: 230 } }, margin: { left: 36, right: 36 },
   });
   // Gantt consolidado
   doc.addPage();
   let y = dibujarGantt(doc, 'Diagrama de Gantt · proyectos (barra = inicio → entrega vigente; relleno = avance; línea punteada = entrega original)',
-    proyectos.map(p => ({ nivel: 1, etiqueta: `${p.codigo} · ${p.nombre}`, ini: iniDe(p), fin: finDe(p), orig: p.fecha_entrega_original, avance: Number(p.avance || 0), semaforo: p.semaforo })), 40);
+    proyectos.map(p => ({ nivel: 1, etiqueta: `${codigoTexto(p)} · ${p.nombre}`, ini: iniDe(p), fin: finDe(p), orig: p.fecha_entrega_original, avance: Number(p.avance || 0), semaforo: p.semaforo })), 40);
   // Ficha por proyecto con su Gantt de tareas
   for (const p of proyectos) {
     doc.addPage();
-    doc.setFontSize(13); doc.setTextColor(20); doc.text(doc.splitTextToSize(`${p.codigo} · ${p.nombre}`, W - 72), 36, 40);
+    doc.setFontSize(13); doc.setTextColor(20); doc.text(doc.splitTextToSize(`${codigoTexto(p)} · ${p.nombre}`, W - 72), 36, 40);
     doc.autoTable({
       startY: 58, theme: 'plain', styles: { fontSize: 7.5, cellPadding: 2 }, columnStyles: { 0: { fontStyle: 'bold', cellWidth: 130 } }, margin: { left: 36, right: 36 },
       body: [

@@ -1,5 +1,5 @@
-import { html, useState, useEffect, sb, fecha, hoyISO, diasEntre, nombreMes, mesActualISO, mensajeError } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso } from '../componentes.js';
+import { html, useState, useEffect, sb, fecha, hoyISO, diasEntre, nombreMes, mesActualISO, mensajeError, codigoTexto } from '../lib.js';
+import { Estado, Semaforo, Barra, Aviso, Codigo } from '../componentes.js';
 
 export function MiUnidad({ ctx }) {
   const { perfil, cat } = ctx;
@@ -37,12 +37,12 @@ export function MiUnidad({ ctx }) {
   const vencen = activos.filter(p => p.dias_restantes !== null && p.dias_restantes >= 0 && p.dias_restantes <= 15);
   const vencidos = activos.filter(p => p.vencido);
   const porValidar = ps.filter(p => p.por_validar);
-  const cod = id => (ps.find(p => p.id === id) || {}).codigo;
+  const cod = id => codigoTexto(ps.find(p => p.id === id));
 
   const Lista = ({ items, vacio, extra }) => items.length ? html`<div class="tabla-env"><table>
       <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>Avance</th><th>Vigente</th><th></th>${extra && html`<th>${extra.titulo}</th>`}</tr></thead>
       <tbody>${items.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-        <td class="nowrap"><b>${p.codigo}</b></td><td>${p.nombre}</td><td><${Estado} e=${p.estado} /></td>
+        <td class="nowrap"><${Codigo} p=${p} /></td><td>${p.nombre}</td><td><${Estado} e=${p.estado} /></td>
         <td style="min-width:110px"><${Barra} v=${p.avance} /></td><td class="nowrap">${fecha(p.fecha_entrega_vigente)}</td>
         <td><${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} /></td>${extra && html`<td>${extra.valor(p)}</td>`}</tr>`)}</tbody></table></div>`
     : html`<div class="vacio">${vacio}</div>`;

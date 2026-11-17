@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, usePestana } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
+import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
 export function ListaProyectos({ ctx }) {
@@ -70,9 +70,7 @@ const COLS_EST = [{ titulo: 'Programa', valor: p => p.estrategico_programa || ''
 // Fila de proyecto (misma estructura en las dos pestañas): código estratégico arriba y código SMCI debajo
 function FilaProyecto({ p, perfil }) {
   return html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-    <td class="nowrap">${p.codigo_estrategico
-      ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`
-      : html`<b>${p.codigo}</b>${p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
+    <td class="nowrap"><${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}</td>
     <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
       ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}
       ${p.codigo_estrategico && html`<br/><span class="ayuda">${p.unidad_sigla || p.direccion_sigla || ''}</span>`}</td>

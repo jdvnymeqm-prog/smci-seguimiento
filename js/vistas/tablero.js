@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO } from '../componentes.js';
+import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO, Codigo } from '../componentes.js';
 import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
 
 function BotonesExportarTodo({ lista, ctx, sub }) {
@@ -112,7 +112,7 @@ export function Tablero({ ctx }) {
       <p class="ayuda">Proyectos marcados en la carga inicial porque su unidad o su responsable no estaban claros en la fuente. No son cambios esperando validación: hay que abrir cada proyecto, corregir el dato si hace falta y quitar la marca «Por validar» (en la ficha, pestaña de datos, solo el administrador).</p>
       <div class="tabla-env"><table><thead><tr><th>Código</th><th>Proyecto</th><th>Unidad</th><th>Qué revisar</th></tr></thead>
         <tbody>${filtrada.filter(p => p.por_validar).map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-          <td class="nowrap"><b>${p.codigo}</b></td><td>${p.nombre}</td><td class="nowrap">${p.unidad_sigla || html`<span class="etiqueta">Sin unidad</span>`}</td>
+          <td class="nowrap"><${Codigo} p=${p} /></td><td>${p.nombre}</td><td class="nowrap">${p.unidad_sigla || html`<span class="etiqueta">Sin unidad</span>`}</td>
           <td>${p.por_validar_motivo || '—'}</td></tr>`)}</tbody></table></div></div>`}
     <div class="rejilla dos">
       <div class="panel"><h3>Proyectos por dirección y estado</h3>
