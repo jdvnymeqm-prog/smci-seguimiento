@@ -220,15 +220,22 @@ function Aplicacion({ sesion }) {
   const unidad = cat.unidades.find(u => u.id === perfil.unidad_id);
   const items = [
     ['tablero', perfil.rol === 'admin' ? 'Consolidado SMCI' : 'Tablero'],
+    ['estrategicos', 'Proyectos estratégicos'],
     ['proyectos', 'Proyectos'],
     ...(perfil.unidad_id || perfil.rol === 'director' ? [['mi-unidad', perfil.rol === 'director' ? 'Mi dirección' : 'Mi unidad']] : []),
     ...(perfil.rol === 'admin' || perfil.rol === 'jefe' || perfil.rol === 'director' ? [['validaciones', 'Validaciones']] : []),
     ...(perfil.rol === 'admin' ? [['admin', 'Administración']] : []),
   ];
-  const activo = r.vista === 'proyecto' ? 'proyectos' : r.vista;
+  let ultimaLista = 'proyectos';
+  try {
+    if (r.vista === 'estrategicos' || r.vista === 'proyectos') sessionStorage.setItem('smci_lista', r.vista);
+    ultimaLista = sessionStorage.getItem('smci_lista') || 'proyectos';
+  } catch { /* sin almacenamiento: se marca «Proyectos» */ }
+  const activo = r.vista === 'proyecto' ? ultimaLista : r.vista;
 
   let vista;
-  if (r.vista === 'proyectos') vista = html`<${ListaProyectos} ctx=${ctx} />`;
+  if (r.vista === 'estrategicos') vista = html`<${ListaProyectos} ctx=${ctx} modo="estrategicos" key="est" />`;
+  else if (r.vista === 'proyectos') vista = html`<${ListaProyectos} ctx=${ctx} modo="otros" key="otros" />`;
   else if (r.vista === 'proyecto') vista = html`<${Ficha} ctx=${ctx} id=${r.id} key=${r.id} />`;
   else if (r.vista === 'mi-unidad') vista = html`<${MiUnidad} ctx=${ctx} />`;
   else if (r.vista === 'admin' && perfil.rol === 'admin') vista = html`<${Admin} ctx=${ctx} />`;

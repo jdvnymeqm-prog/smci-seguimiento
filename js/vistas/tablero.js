@@ -63,6 +63,10 @@ export function Tablero({ ctx }) {
 
   const filtrada = useMemo(() => lista ? aplicarFiltros(lista, f, repMes) : [], [lista, f, repMes]);
   const r = resumen(filtrada);
+  // Detalle separado: primero los proyectos estratégicos (en el orden del Eje III), abajo los demás
+  const ordenEst = Object.fromEntries((cat.estrategicos || []).map(e => [e.codigo, e.orden]));
+  const est = filtrada.filter(p => p.codigo_estrategico).sort((x, y) => (ordenEst[x.codigo_estrategico] - ordenEst[y.codigo_estrategico]) || x.codigo.localeCompare(y.codigo));
+  const otros = filtrada.filter(p => !p.codigo_estrategico);
 
   if (err) return html`<${Aviso} tipo="error">${err}<//>`;
   if (!lista) return html`<div class="vacio">Cargando tablero…</div>`;
@@ -121,10 +125,10 @@ export function Tablero({ ctx }) {
         <${Grafico} tipo="bar" datos=${porUni} opciones=${{ indexAxis: 'y', scales: { x: { min: 0, max: 100, position: 'bottom', title: { display: true, text: '% avance' } }, x2: { position: 'top', grid: { drawOnChartArea: false }, ticks: { precision: 0 } } }, plugins: { legend: { position: 'bottom' } } }} /></div>
     </div>
     <div class="panel">
-      <h3>Detalle por proyecto</h3>
+      <h3>Proyectos estratégicos · Eje III Ciudad Inteligente (${est.length})</h3>
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
-        <tbody>${filtrada.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
+        <tbody>${est.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
           <td class="nowrap">${p.codigo_estrategico ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}` : html`<b>${p.codigo}</b>`}<br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
           <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
           <td><${Estado} e=${p.estado} /></td>
@@ -134,6 +138,22 @@ export function Tablero({ ctx }) {
           <td><${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} /></td>
           <td><${QueFalta} items=${p.que_falta} obs=${p.observaciones_falta} max=${3} /></td>
         </tr>`)}</tbody>
-      </table>${!filtrada.length && html`<div class="vacio">No hay proyectos con estos filtros.</div>`}</div>
+      </table>${!est.length && html`<div class="vacio">No hay proyectos estratégicos con estos filtros.</div>`}</div>
+    </div>
+    <div class="panel">
+      <h3>Proyectos (${otros.length})</h3>
+      <div class="tabla-env"><table>
+        <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
+        <tbody>${otros.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
+          <td class="nowrap">${p.codigo_estrategico ? html`<span class="cod-est">${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}` : html`<b>${p.codigo}</b>`}<br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
+          <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
+          <td><${Estado} e=${p.estado} /></td>
+          <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
+          <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>
+          <td class="nowrap">${fecha(p.fecha_entrega_vigente)}${p.n_reprogramaciones ? html` <span class="pill" title="Reprogramaciones">↻${p.n_reprogramaciones}</span>` : ''}</td>
+          <td><${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} /></td>
+          <td><${QueFalta} items=${p.que_falta} obs=${p.observaciones_falta} max=${3} /></td>
+        </tr>`)}</tbody>
+      </table>${!otros.length && html`<div class="vacio">No hay proyectos con estos filtros.</div>`}</div>
     </div>`;
 }

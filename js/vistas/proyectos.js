@@ -1,15 +1,14 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, usePestana } from '../lib.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
-export function ListaProyectos({ ctx }) {
+export function ListaProyectos({ ctx, modo = 'otros' }) {
   const { cat, perfil } = ctx;
   const [lista, setLista] = useState(null);
   const [f, setF] = useState(filtrosVacios());
   const [meses, setMeses] = useState([]);
   const [repMes, setRepMes] = useState(null);
   const [nuevo, setNuevo] = useState(false);
-  const [pest, setPest] = usePestana('pestana', 'estrategicos');
   const [err, setErr] = useState('');
 
   const cargar = () => sb.from('v_proyectos').select('*').order('codigo')
@@ -18,7 +17,7 @@ export function ListaProyectos({ ctx }) {
   useEffect(() => { cargarReportesMes(f.mes).then(setRepMes); }, [f.mes]);
 
   const todos = useMemo(() => lista ? aplicarFiltros(lista, f, repMes) : [], [lista, f, repMes]);
-  const esEst = pest === 'estrategicos';
+  const esEst = modo === 'estrategicos';
   // Sin repetir: lo estratégico va solo en su pestaña; «Otros» es lo que no tiene código del Eje III
   const filtrada = todos.filter(p => esEst ? !!p.codigo_estrategico : !p.codigo_estrategico);
   const nEst = lista ? lista.filter(p => p.codigo_estrategico).length : 0;
@@ -38,18 +37,15 @@ export function ListaProyectos({ ctx }) {
 
   return html`
     <div class="encabezado">
-      <div><h1>Proyectos</h1><p>${esEst
-        ? `Proyectos estratégicos del Eje III «Ciudad Inteligente» (E3P23 a E3P28): ${filtrada.length} de ${nEst}, agrupados por programa y proyecto estratégico`
-        : `Otros proyectos de la Secretaría: ${filtrada.length} de ${lista.length - nEst}, agrupados por dirección y unidad`}</p></div>
+      <div><h1>${esEst ? 'Proyectos estratégicos' : 'Proyectos'}</h1><p>${esEst
+        ? 'Eje III «Ciudad Inteligente» · programas E3P23 a E3P28. Cada proyecto estratégico con su numeral; si también tiene código SMCI, va debajo.'
+        : `Proyectos de la Secretaría que no son proyectos estratégicos del Eje III: ${filtrada.length} de ${lista.length - nEst}, agrupados por dirección y unidad.`}</p></div>
       <div class="acciones">
         ${puedeCrear && html`<button class="prim" onClick=${() => setNuevo(true)}>+ Nuevo proyecto</button>`}
         <button onClick=${() => exportarExcel(esEst ? 'proyectos_estrategicos' : 'otros_proyectos', esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'Estratégicos' : 'Otros proyectos')}>Exportar Excel</button>
         <button onClick=${() => exportarPDF(esEst ? 'Proyectos estratégicos · Eje III Ciudad Inteligente' : 'Otros proyectos', describirFiltros(f, cat), esEst ? COLS_EST : COLUMNAS_PROYECTO, filtrada, esEst ? 'proyectos_estrategicos' : 'otros_proyectos')}>Exportar PDF</button>
       </div>
     </div>
-    <div class="tabs">
-      <button class=${esEst ? 'activo' : ''} onClick=${() => setPest('estrategicos')}>⭐ Proyectos estratégicos · Eje III (${nEst})</button>
-      <button class=${!esEst ? 'activo' : ''} onClick=${() => setPest('otros')}>Otros proyectos (${lista.length - nEst})</button></div>
     <${Filtros} f=${f} setF=${setF} cat=${cat} meses=${meses} conTexto=${true} />
     ${esEst ? html`<${TablaEstrategicos} ps=${filtrada} cat=${cat} perfil=${perfil} />` : html`<div class="tabla-env"><table>
       <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
@@ -68,12 +64,12 @@ export function ListaProyectos({ ctx }) {
 const COLS_EST = [{ titulo: 'Programa', valor: p => p.estrategico_programa || '', ancho: 9 }, ...COLUMNAS_PROYECTO];
 
 // Fila de proyecto (misma estructura en las dos pestañas): código estratégico arriba y código SMCI debajo
-function FilaProyecto({ p, perfil }) {
-  return html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-    <td class="nowrap"><${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}</td>
-    <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
+function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
+  return html`<tr class=${'clic' + (sub ? ' sub' : '')} onClick=${() => location.hash = '#/proyecto/' + p.id}>
+    <td class="nowrap">${celdaCodigo || html`<${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
+    <td>${celdaNombre || p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
       ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}
-      ${p.codigo_estrategico && html`<br/><span class="ayuda">${p.unidad_sigla || p.direccion_sigla || ''}</span>`}</td>
+      <br/><span class="ayuda">${p.unidad_sigla || (p.direccion_sigla ? p.direccion_sigla + ' · sin unidad' : '')}</span></td>
     <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
     <td><${Estado} e=${p.estado} /></td>
     <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
@@ -85,28 +81,41 @@ function FilaProyecto({ p, perfil }) {
   </tr>`;
 }
 
-// Pestaña de estratégicos: Programa (E3P23…E3P28) → Proyecto estratégico (E3Pxx-PROYn) → proyectos
+// Proyectos estratégicos con la estructura del Excel: Programa (E3P23…E3P28) → proyecto estratégico (23.1, 24.1…).
+// Cada proyecto estratégico es una fila; si tiene también código SMCI, va debajo del numeral.
 function TablaEstrategicos({ ps, cat, perfil }) {
   const E = cat.estrategicos || [];
-  const prom = xs => xs.length ? Math.round(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length * 10) / 10 : null;
-  const programas = E.filter(e => e.tipo === 'programa').map(pr => {
-    const delPrograma = ps.filter(p => p.estrategico_programa === pr.codigo);
-    const grupos = [
-      ...E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo).map(e => ({ e, xs: delPrograma.filter(p => p.codigo_estrategico === e.codigo) })),
-      { e: { codigo: pr.codigo, numeral: pr.numeral, nombre: 'Otras acciones del programa (sin proyecto estratégico específico)' }, xs: delPrograma.filter(p => p.codigo_estrategico === pr.codigo), otras: true },
-    ].filter(g => g.xs.length);
-    return { pr, grupos, n: delPrograma.length, av: prom(delPrograma) };
-  }).filter(x => x.n);
-  return html`<div class="tabla-env"><table>
+  const prom = xs => xs.length ? Math.round(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length * 10) / 10 : 0;
+  const programas = E.filter(e => e.tipo === 'programa').map(pr => ({
+    pr, items: E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
+      .map(e => ({ e, xs: ps.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length),
+  })).filter(x => x.items.length);
+  const smci = xs => xs.filter(p => p.codigo !== p.codigo_estrategico);
+  const total = programas.reduce((a, x) => a + x.items.length, 0);
+  return html`<div class="tabla-env"><table class="tabla-est">
     <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
       <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
     <tbody>${programas.map(x => html`
-      <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.n}</span> · avance promedio ${x.av} %</td></tr>
-      ${x.grupos.map(g => html`
-        <tr class="grupo-est"><td colspan="10">${g.otras ? g.e.nombre : html`<b>${g.e.codigo}</b> ${g.e.nombre}`} <span class="pill">${g.xs.length}</span>${g.xs.length > 1 ? ` · avance promedio ${prom(g.xs)} %` : ''}</td></tr>
-        ${g.xs.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} />`)}`)}`)}
+      <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.items.length} ${x.items.length === 1 ? 'proyecto' : 'proyectos'}</span></td></tr>
+      ${x.items.map(({ e, xs }) => {
+        const codigos = smci(xs);
+        const celdaCodigo = html`<span class="cod-est">${e.codigo}</span>${codigos.map(p => html`<span class="cod-smci">${p.codigo}</span>`)}`;
+        if (xs.length === 1) {
+          const p = xs[0];
+          return html`<${FilaProyecto} p=${p} perfil=${perfil} celdaCodigo=${celdaCodigo}
+            celdaNombre=${html`<b>${e.nombre}</b>${codigos.length ? html`<br/><span class="ayuda">${p.codigo}: ${p.nombre}</span>` : ''}`} />`;
+        }
+        return html`<tr class="est-varios">
+            <td class="nowrap">${celdaCodigo}</td>
+            <td><b>${e.nombre}</b><br/><span class="ayuda">${xs.length} proyectos SMCI vinculados (detalle abajo)</span></td>
+            <td colspan="2" class="ayuda">${[...new Set(xs.map(p => p.estado))].join(' · ')}</td>
+            <td style="min-width:120px"><${Barra} v=${prom(xs)} /><span class="ayuda">promedio</span></td>
+            <td colspan="5"></td></tr>
+          ${xs.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} sub=${true}
+            celdaCodigo=${html`<span class="cod-smci">↳ ${p.codigo}</span>`} />`)}`;
+      })}`)}
     </tbody></table>
-    ${!ps.length && html`<div class="vacio">No hay proyectos estratégicos con estos filtros.</div>`}</div>`;
+    ${!total && html`<div class="vacio">No hay proyectos estratégicos con estos filtros.</div>`}</div>`;
 }
 
 function siguienteCodigo(lista) {
