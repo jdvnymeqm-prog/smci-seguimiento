@@ -172,3 +172,12 @@ td.nowrap { white-space: nowrap; }
 .clave-campo { position: relative; display: block; }
 .clave-campo input { padding-right: 2.6rem; }
 .clave-campo .ver-clave { position: absolute; right: .25rem; top: 50%; transform: translateY(-50%); border: 0; background: transparent; padding: .25rem .4rem; cursor: pointer; font-size: 1rem; line-height: 1; box-shadow: none; min-height: 0; width: auto; }
+
+/* Botón Atrás */
+.barra-atras { margin: 0 0 .75rem; }
+.btn-atras { font-weight: 600; }
+/* Código estratégico arriba, código SMCI debajo */
+.cod-est { font-weight: 700; color: var(--primario, #18465c); white-space: nowrap; }
+.cod-smci { display: block; font-size: .78rem; color: var(--suave); margin-top: .1rem; white-space: nowrap; }
+tr.grupo-prog td { background: #18465c; color: #fff; font-weight: 700; }
+tr.grupo-est td { background: #e8f0f3; font-weight: 600; }

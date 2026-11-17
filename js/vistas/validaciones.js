@@ -1,7 +1,7 @@
 // Propuestas de cambio: las unidades proponen, el jefe de unidad valida (se aplica) o rechaza.
 // Lo validado queda cerrado; nueva información sobre el mismo dato después de 72 h,
 // o antes con un permiso de corrección del administrador.
-import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar, bloqueoCambios } from '../lib.js';
+import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar, bloqueoCambios, usePestana, codigoPrincipal } from '../lib.js';
 import { Aviso, Modal } from '../componentes.js';
 
 export const TIPOS = {
@@ -43,7 +43,7 @@ const ESTADO_TXT = { pendiente: 'Pendiente', validada: 'Validada', rechazada: 'R
 
 export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   const { perfil, cat } = ctx;
-  const [vista, setVista] = useState('pendiente');
+  const [vista, setVista] = usePestana('estado', 'pendiente');
   const [lista, setLista] = useState(null);
   const [abierta, setAbierta] = useState(null);
   const [accion, setAccion] = useState(null);   // {tipo:'validar'|'rechazar'|'permiso', m}
@@ -53,7 +53,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   const puedeRevisar = m => !bloqueoCambios(cat, perfil) && puedeValidar(perfil, cat.todasUnidades.find(u => u.id === m.unidad_id));
 
   const cargar = () => {
-    let q = sb.from('propuestas').select('*, proyectos(codigo,nombre)').eq('estado', vista);
+    let q = sb.from('propuestas').select('*, proyectos(codigo,codigo_estrategico,nombre)').eq('estado', vista);
     if (proyectoId) q = q.eq('proyecto_id', proyectoId);
     q.order(vista === 'pendiente' ? 'creado_en' : 'revisado_en', { ascending: vista === 'pendiente' }).limit(500)
       .then(({ data, error }) => error ? setMsg({ err: mensajeError(error) }) : setLista(data || []));
@@ -72,7 +72,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
     cargar();
   }
   const uni = id => (cat.todasUnidades.find(u => u.id === id) || {}).sigla || 'Por validar';
-  const nombreProy = m => m.proyectos ? html`<a href=${'#/proyecto/' + m.proyecto_id}><b>${m.proyectos.codigo}</b></a> ${m.proyectos.nombre}`
+  const nombreProy = m => m.proyectos ? html`<a href=${'#/proyecto/' + m.proyecto_id}><b>${codigoPrincipal(m.proyectos)}</b></a> ${m.proyectos.nombre}`
     : html`<b>${m.datos?.codigo || ''}</b> ${m.datos?.nombre || ''} <span class="etiqueta">Nuevo</span>`;
   const cols = [
     { titulo: 'Proyecto', valor: m => m.proyectos?.codigo || m.datos?.codigo }, { titulo: 'Unidad', valor: m => uni(m.unidad_id) },

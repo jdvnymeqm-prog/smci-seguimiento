@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError } from '../lib.js';
+import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
 import { ListaPropuestas } from './validaciones.js';
 
@@ -12,7 +12,7 @@ export function Ficha({ ctx, id }) {
   const [reportes, setReportes] = useState([]);
   const [evid, setEvid] = useState([]);
   const [apoyos, setApoyos] = useState([]);
-  const [tab, setTab] = useState('datos');
+  const [tab, setTab] = usePestana('pestana', 'datos');
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
 
@@ -47,11 +47,12 @@ export function Ficha({ ctx, id }) {
     ['evid', `Evidencias (${evid.length})`], ['propuestas', `Cambios propuestos${p.n_mod_pendientes ? ' (' + p.n_mod_pendientes + ')' : ''}`], ['bitacora', 'Bitácora'],
   ];
   return html`
-    <p><a href="#/proyectos">← Proyectos</a></p>
     <div class="panel">
       <div class="ficha-cab">
         <div style="min-width:0;flex:1">
-          <div class="acciones" style="margin-bottom:.3rem"><span class="pill">${p.codigo}</span>
+          <div class="acciones" style="margin-bottom:.3rem">${p.codigo_estrategico
+              ? html`<span class="pill" style="background:#18465c;color:#fff" title=${'Proyecto estratégico Eje III · ' + (p.estrategico_nombre || '')}>${p.codigo_estrategico}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="pill">${p.codigo}</span>` : ''}`
+              : html`<span class="pill">${p.codigo}</span>`}
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
             <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />
             ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>`}</div>
@@ -148,6 +149,7 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       presupuesto_programado: d.presupuesto_programado, presupuesto_ejecutado: d.presupuesto_ejecutado,
       beneficiarios: d.beneficiarios || null, por_validar: d.por_validar, por_validar_motivo: d.por_validar ? d.por_validar_motivo : null,
     };
+    if (esAdmin) cambios.codigo_estrategico = d.codigo_estrategico || null;
     if (!p.fecha_entrega_original || esAdmin) cambios.fecha_entrega_original = d.fecha_entrega_original || null;
     if (!p.fecha_entrega_vigente) cambios.fecha_entrega_vigente = d.fecha_entrega_original || null;
     if (esAdmin) {
@@ -233,6 +235,9 @@ function Datos({ p, apoyos, editable, ctx, listo, fallo }) {
       <div class="ancho"><small class="ayuda"><b>Qué falta para completarlo</b> (se arma solo con las tareas pendientes)</small>
         <${QueFalta} items=${p.que_falta} max=${50} /></div>
       <label class="ancho">Observaciones sobre lo que falta<textarea value=${d.observaciones_falta || ''} onInput=${set('observaciones_falta')} /></label>
+      <label class="ancho">Proyecto estratégico (Eje III Ciudad Inteligente)<select value=${d.codigo_estrategico || ''} onChange=${set('codigo_estrategico')}>
+        <option value="">— No es estratégico (va en «Otros proyectos») —</option>
+        ${(cat.estrategicos || []).map(e => html`<option value=${e.codigo}>${e.codigo} · ${e.numeral} ${e.nombre.slice(0, 80)}</option>`)}</select></label>
       <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.por_validar} onChange=${set('por_validar')} /> Marcado «Datos por revisar» (quite la marca cuando esté corregido)</label>
       ${d.por_validar && html`<label>Motivo<input value=${d.por_validar_motivo || ''} onInput=${set('por_validar_motivo')} /></label>`}
     </div>

@@ -1,15 +1,15 @@
-import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
+import { html, useState, useEffect, sb, ROLES, fecha, fechaHora, exportarExcel, exportarPDF, mensajeError, usePestana } from '../lib.js';
 import { Aviso, Modal, Estado, FechaInput } from '../componentes.js';
 import { Importador } from './importador.js';
 import { TIPOS, CAMPOS } from './validaciones.js';
 
 export function Admin({ ctx }) {
-  const [tab, setTab] = useState('usuarios');
+  const [tab] = usePestana('pestana', 'usuarios');
   const tabs = [['usuarios', 'Usuarios y roles'], ['actividad', 'Actividad por usuario'], ['estructura', 'Direcciones y unidades'], ['bloqueo', '🔒 Bloqueo de cambios'], ['config', 'Fecha de corte y respaldos'],
     ['carga', 'Carga inicial'], ['catalogos', 'Catálogos']];
   return html`
     <div class="encabezado"><div><h1>Administración</h1><p>Solo el administrador ve esta sección. Todos los cambios quedan en la bitácora.</p></div></div>
-    <div class="tabs">${tabs.map(([k, t]) => html`<button class=${tab === k ? 'activo' : ''} onClick=${() => setTab(k)}>${t}</button>`)}</div>
+    <div class="tabs">${tabs.map(([k, t]) => html`<button class=${tab === k ? 'activo' : ''} onClick=${() => { if (k !== tab) location.hash = '#/admin' + (k === 'usuarios' ? '' : '?pestana=' + k); }}>${t}</button>`)}</div>
     ${tab === 'usuarios' && html`<${Usuarios} ctx=${ctx} />`}
     ${tab === 'actividad' && html`<${Actividad} ctx=${ctx} />`}
     ${tab === 'estructura' && html`<${Estructura} ctx=${ctx} />`}
@@ -134,7 +134,7 @@ function Actividad({ ctx }) {
   const [hasta, setHasta] = useState('');
   const [lista, setLista] = useState(null);
   const [err, setErr] = useState('');
-  const [sel, setSel] = useState(null);
+  const [selId, setSelId] = usePestana('usuario', '');
   const cargar = () => {
     setLista(null);
     sb.rpc('actividad_usuarios', { p_desde: desde || null, p_hasta: hasta || null })
@@ -155,6 +155,8 @@ function Actividad({ ctx }) {
     { titulo: 'Última actividad', valor: u => u.ultima_actividad ? fechaHora(u.ultima_actividad) : '—' },
   ];
   const periodo = (desde || hasta) ? `Periodo: ${desde ? fecha(desde) : 'inicio'} al ${hasta ? fecha(hasta) : 'hoy'}` : 'Todo el historial';
+  const sel = selId && lista ? lista.find(x => x.id === selId) : null;
+  const setSel = u => setSelId(u ? u.id : '');
   if (sel) return html`<${HistorialUsuario} u=${sel} desde=${desde} hasta=${hasta} periodo=${periodo} area=${area(sel)} onVolver=${() => setSel(null)} />`;
   return html`<div class="panel">
     <${Aviso} tipo="error">${err}<//>
@@ -228,7 +230,6 @@ function HistorialUsuario({ u, desde, hasta, periodo, area, onVolver }) {
   const sub = `${u.nombre || ''} (${u.correo}) · ${ROLES[u.rol] || u.rol} · ${area} · ${periodo}`;
   const archivo = 'historial_' + (u.correo || 'usuario').split('@')[0];
   return html`<div class="panel">
-    <p><button onClick=${onVolver}>← Volver a la lista</button></p>
     <div class="encabezado"><div><h3>Historial de ${u.nombre || u.correo}</h3>
       <p>${u.correo} · ${ROLES[u.rol] || u.rol} · ${area}<br/>Último ingreso: ${u.ultimo_ingreso ? fechaHora(u.ultimo_ingreso) : 'nunca'} · ${periodo}</p></div>
       ${filas && filas.res.length > 0 && html`<div class="acciones"><button onClick=${() => exportarExcel(archivo, cols, vis, 'Historial')}>Exportar Excel</button>
