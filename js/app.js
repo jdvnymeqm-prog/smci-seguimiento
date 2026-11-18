@@ -265,7 +265,7 @@ function Aplicacion({ sesion }) {
         <nav class="nav">${items.map(([k, t]) => html`<a href="#/${k}" class=${activo === k ? 'activo' : ''}>${t}</a>`)}</nav>
         <div class="pie">
           <b>${perfil.nombre || perfil.correo}</b>
-          ${esSecretaria ? 'Despacho de la Secretaría' : ROLES[perfil.rol]}${unidad ? ' · ' + unidad.sigla : ''}
+          ${perfil.cargo || (esSecretaria ? 'Despacho de la Secretaría' : ROLES[perfil.rol])}${unidad ? ' · ' + unidad.sigla : ''}
           <div style="margin-top:.6rem;display:grid;gap:.4rem"><${BotonInstalar} />
             <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 App Android (APK)</a>
             <${CambiarClave} />

@@ -271,7 +271,7 @@ function Estructura({ ctx }) {
     <p class="ayuda">Desactivar una dirección o unidad la oculta de los selectores sin borrar sus proyectos ni su historial.</p>
     <div class="acciones" style="margin-bottom:1rem"><button onClick=${() => setEdit({ tabla: 'direcciones', d: { activa: true } })}>+ Nueva dirección</button>
       <button onClick=${() => setEdit({ tabla: 'unidades', d: { activa: true, tiene_jefe: null } })}>+ Nueva unidad</button></div>
-    <p class="ayuda">Si una unidad no cuenta con jefe, los cambios que proponga los valida el director de su dirección. El «Personal de la Dirección» de cada dirección (y el «Personal del Despacho» de la Secretaría) es una unidad sin jefe: su avance lo valida el titular de esa dirección o despacho.</p>
+    <p class="ayuda">Si una unidad no cuenta con jefe, los cambios que proponga los valida el director de su dirección. El «Personal de la Dirección» de cada dirección (y el «Personal del Despacho» de la Secretaría) es una unidad sin jefe: su avance lo valida el director de esa dirección. El personal del Despacho de la Secretaría lo revisa y valida el Encargado de Planificación (administrador), que además puede validar todo.</p>
     ${D.map(d => html`<div class="panel" style="background:#fbfcfc">
       <div class="encabezado"><div><h3>${d.sigla} · ${d.nombre} ${d.es_despacho_secretaria ? html`<span class="pill">Despacho de la Secretaría</span>` : ''} ${!d.activa ? html`<span class="etiqueta">Inactiva</span>` : ''}</h3><p>Titular: ${d.titular || '—'}</p></div>
         <button onClick=${() => setEdit({ tabla: 'direcciones', d })}>Editar</button></div>
@@ -304,7 +304,7 @@ function EditarEstructura({ e, D, onCerrar, onGuardar }) {
           <label class="ancho">Descripción / funciones<input value=${d.descripcion || ''} onInput=${set('descripcion')} /></label>`
         : html`<label>Titular<input value=${d.titular || ''} onInput=${set('titular')} /></label>
           <label class="ancho" style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${!!d.es_despacho_secretaria} onChange=${set('es_despacho_secretaria')} />
-            Es el Despacho de la Secretaría (su titular ve todas las direcciones)</label>`}
+            Es el Despacho de la Secretaría (su personal lo valida el Encargado de Planificación)</label>`}
       <label>Orden<input type="number" value=${d.orden || 0} onInput=${set('orden')} /></label>
       <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${d.activa !== false} onChange=${set('activa')} /> Activa</label>
     </div>
