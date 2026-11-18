@@ -1,5 +1,5 @@
 -- 21 · Despacho de la Secretaría y personal directo de cada dirección
--- Ejecutar una sola vez en Supabase → SQL Editor → «Run». Se puede volver a ejecutar sin duplicar nada.
+-- Aplicada el 18/11/2026. Se puede volver a ejecutar sin duplicar nada.
 
 -- 1) Despacho de la Secretaría Municipal: nivel por encima de las direcciones
 alter table public.direcciones add column if not exists es_despacho_secretaria boolean not null default false;
@@ -46,8 +46,7 @@ create or replace function public.puede_ver_unidad(p_unidad uuid, p_direccion uu
   or public.es_secretaria()
 $$;
 
-drop policy if exists lectura on public.direcciones;
-create policy lectura on public.direcciones for select to authenticated
+alter policy lectura on public.direcciones
   using (public.es_admin() or public.es_secretaria() or id = public.mi_direccion());
 
 insert into public.app_migraciones (nombre)
