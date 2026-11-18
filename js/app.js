@@ -114,8 +114,9 @@ function Registro({ onVolver }) {
       <label>Correo institucional<input type="email" required autocomplete="username" value=${d.correo} onInput=${set('correo')} placeholder="nombre.apellido@lapaz.bo" /></label>
       <label>Dirección<select required value=${d.direccion_id} onChange=${set('direccion_id')}>
         <option value="">Elegir…</option>${(op?.direcciones || []).map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
-      <label>Unidad<select required value=${d.unidad_id} onChange=${set('unidad_id')} disabled=${!d.direccion_id}>
-        <option value="">Elegir…</option>${unidades.map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>
+      <label>Unidad o área<select required value=${d.unidad_id} onChange=${set('unidad_id')} disabled=${!d.direccion_id}>
+        <option value="">Elegir…</option>${unidades.map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select>
+        <span class="ayuda">Si depende directamente de la Dirección o del Despacho de la Secretaría, elija «Personal de la Dirección» o «Personal del Despacho».</span></label>
       <label>Contraseña (mínimo 10 caracteres)<${ClaveInput} required autocomplete="new-password" value=${d.clave} onInput=${set('clave')} /></label>
       <label>Repita la contraseña<${ClaveInput} required autocomplete="new-password" value=${d.clave2} onInput=${set('clave2')} /></label>
       <button class="prim" disabled=${ocupado}>${ocupado ? 'Enviando…' : 'Crear mi cuenta'}</button>
@@ -220,10 +221,13 @@ function Aplicacion({ sesion }) {
 
   // Selectores: solo direcciones/unidades activas y, salvo el administrador, solo las propias
   const esAdmin = perfil.rol === 'admin';
+  // El titular del Despacho de la Secretaría (director de DESP-SMCI) ve todas las direcciones
+  const esSecretaria = perfil.rol === 'director' && !!cat.direcciones.find(d => d.id === perfil.direccion_id)?.es_despacho_secretaria;
+  const veTodo = esAdmin || esSecretaria;
   const esUnidad = perfil.rol === 'jefe' || perfil.rol === 'responsable';
-  const dirVis = cat.direcciones.filter(x => x.activa && (esAdmin || x.id === perfil.direccion_id));
-  const uniVis = cat.unidades.filter(x => x.activa && (esAdmin || (esUnidad ? x.id === perfil.unidad_id : x.direccion_id === perfil.direccion_id)));
-  const perVis = esAdmin ? cat.personas : cat.personas.filter(p => uniVis.some(u => u.id === p.unidad_id) || (!p.unidad_id && p.direccion_id === perfil.direccion_id));
+  const dirVis = cat.direcciones.filter(x => x.activa && (veTodo || x.id === perfil.direccion_id));
+  const uniVis = cat.unidades.filter(x => x.activa && (veTodo || (esUnidad ? x.id === perfil.unidad_id : x.direccion_id === perfil.direccion_id)));
+  const perVis = veTodo ? cat.personas : cat.personas.filter(p => uniVis.some(u => u.id === p.unidad_id) || (!p.unidad_id && p.direccion_id === perfil.direccion_id));
   const catAct = { ...cat, direcciones: dirVis, unidades: uniVis, personas: perVis };
   const ctx = { perfil, cat: catAct, recargar: cargarCatalogos, sesion };
   const unidad = cat.unidades.find(u => u.id === perfil.unidad_id);
@@ -261,7 +265,7 @@ function Aplicacion({ sesion }) {
         <nav class="nav">${items.map(([k, t]) => html`<a href="#/${k}" class=${activo === k ? 'activo' : ''}>${t}</a>`)}</nav>
         <div class="pie">
           <b>${perfil.nombre || perfil.correo}</b>
-          ${ROLES[perfil.rol]}${unidad ? ' · ' + unidad.sigla : ''}
+          ${esSecretaria ? 'Despacho de la Secretaría' : ROLES[perfil.rol]}${unidad ? ' · ' + unidad.sigla : ''}
           <div style="margin-top:.6rem;display:grid;gap:.4rem"><${BotonInstalar} />
             <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 App Android (APK)</a>
             <${CambiarClave} />
