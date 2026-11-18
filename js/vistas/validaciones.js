@@ -118,7 +118,7 @@ export function Validaciones({ ctx }) {
   const sinJefe = cat.unidades.filter(u => u.tiene_jefe === false);
   return html`
     <div class="encabezado"><div><h1>Validaciones</h1>
-      <p>${perfil.rol === 'admin' ? 'Todas las unidades.' : perfil.rol === 'director'
+      <p>${perfil.rol === 'admin' ? 'Todas las direcciones, unidades y el personal del Despacho de la Secretaría: como Encargado de Planificación usted revisa y valida todo.' : perfil.rol === 'director'
         ? (sinJefe.length ? `Usted valida los cambios de las unidades sin jefe: ${sinJefe.map(u => u.sigla).join(', ')}. Las demás unidades las valida su jefe.` : 'Todas las unidades de su dirección tienen jefe: ellos validan. Aquí puede consultar las propuestas.')
         : 'Cambios propuestos en su unidad.'} Ningún cambio de una unidad se aplica hasta que su jefe (o el director, si la unidad no tiene jefe) lo valida. Lo validado queda cerrado: nueva información sobre el mismo dato se puede proponer pasadas 72 horas, o antes con permiso del administrador.</p></div></div>
     <${ListaPropuestas} ctx=${ctx} />`;
