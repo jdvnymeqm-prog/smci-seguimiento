@@ -1,5 +1,5 @@
-import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO, Codigo } from '../componentes.js';
+import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError, colorDir } from '../lib.js';
+import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
 import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
 
 function BotonesExportarTodo({ lista, ctx, sub }) {
@@ -107,12 +107,12 @@ export function Tablero({ ctx }) {
     labels: dirs.map(d => d.sigla),
     datasets: ESTADOS.map(e => ({ label: e, backgroundColor: COLOR_ESTADO[e], data: dirs.map(d => filtrada.filter(p => p.direccion_id === d.id && p.estado === e).length) })),
   };
-  const unis = [...cat.unidades.map(u => ({ id: u.id, sigla: u.sigla })), { id: null, sigla: 'Por validar' }]
+  const unis = [...cat.unidades.map(u => ({ id: u.id, sigla: u.sigla, direccion_id: u.direccion_id })), { id: null, sigla: 'Por validar' }]
     .map(u => ({ ...u, ps: filtrada.filter(p => (p.unidad_id || null) === u.id) })).filter(u => u.ps.length);
   const porUni = {
     labels: unis.map(u => u.sigla),
     datasets: [
-      { label: 'Avance promedio (%)', backgroundColor: '#23637f', data: unis.map(u => +(u.ps.reduce((a, p) => a + Number(p.avance || 0), 0) / u.ps.length).toFixed(1)), xAxisID: 'x' },
+      { label: 'Avance promedio (%)', backgroundColor: unis.map(u => colorDir((cat.direcciones.find(d => d.id === u.direccion_id) || {}).sigla).fuerte), data: unis.map(u => +(u.ps.reduce((a, p) => a + Number(p.avance || 0), 0) / u.ps.length).toFixed(1)), xAxisID: 'x' },
       { label: 'N.º de proyectos', backgroundColor: '#f2c14e', data: unis.map(u => u.ps.length), xAxisID: 'x2' },
     ],
   };
@@ -141,6 +141,7 @@ export function Tablero({ ctx }) {
       </div>
     </div>
     <${Filtros} f=${f} setF=${setF} cat=${cat} meses=${meses} />
+    <${LeyendaDirecciones} cat=${cat} />
     ${enMes && html`<${Aviso} tipo="info">Estado y avance tomados de las fichas de ${nombreMes(f.mes)}. Los proyectos sin ficha ese mes figuran como «No reportada». El semáforo y las fechas son los vigentes hoy.<//>`}
     <div class="rejilla kpis" style="margin-bottom:1rem">
       <div class="kpi"><div class="v">${r.total}</div><div class="t">Proyectos</div></div>
@@ -176,7 +177,7 @@ export function Tablero({ ctx }) {
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
         <tbody>${est.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-          <td class="nowrap"><${Codigo} p=${p} /><br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
+          <td class="nowrap" style=${'border-left:5px solid ' + colorDir(p.direccion_sigla).fuerte}><${Codigo} p=${p} /><br/><span class="pill" style=${'background:' + colorDir(p.direccion_sigla).suave + ';color:' + colorDir(p.direccion_sigla).fuerte}>${p.direccion_sigla} · ${p.unidad_sigla || 'Sin unidad'}</span></td>
           <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
           <td><${Estado} e=${p.estado} /></td>
           <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
@@ -192,7 +193,7 @@ export function Tablero({ ctx }) {
       <div class="tabla-env"><table>
         <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>% avance</th><th>Fecha original</th><th>Fecha vigente</th><th></th><th>Qué falta</th></tr></thead>
         <tbody>${otros.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-          <td class="nowrap"><${Codigo} p=${p} /><br/><span class="pill">${p.unidad_sigla || 'Sin unidad'}</span></td>
+          <td class="nowrap" style=${'border-left:5px solid ' + colorDir(p.direccion_sigla).fuerte}><${Codigo} p=${p} /><br/><span class="pill" style=${'background:' + colorDir(p.direccion_sigla).suave + ';color:' + colorDir(p.direccion_sigla).fuerte}>${p.direccion_sigla} · ${p.unidad_sigla || 'Sin unidad'}</span></td>
           <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
           <td><${Estado} e=${p.estado} /></td>
           <td style="min-width:120px"><${Barra} v=${p.avance} /></td>

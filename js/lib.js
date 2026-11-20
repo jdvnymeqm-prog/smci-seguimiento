@@ -112,6 +112,14 @@ export function atras() {
   else location.hash = '#/tablero';
 }
 
+// ---------- Colores por dirección: DICI azul, DEDH verde, Despacho de la Secretaría dorado ----------
+const COLORES_DIR = {
+  DICI: { fuerte: '#1f5fa8', suave: '#e8f0fa', nombre: 'azul' },
+  DEDH: { fuerte: '#2e7d4f', suave: '#e8f5ed', nombre: 'verde' },
+  'DESP-SMCI': { fuerte: '#9a7418', suave: '#faf3e0', nombre: 'dorado' },
+};
+export function colorDir(sigla) { return COLORES_DIR[sigla] || { fuerte: '#18465c', suave: '#eef3f5', nombre: '' }; }
+
 // ---------- Código estratégico (Eje III) primero; el código SMCI debajo ----------
 export function numeralEstrategico(c) { const m = /^E3P(\d+)$/.exec(c || ''); return m ? m[1] : c; }
 export function codigoPrincipal(p) { return p.codigo_estrategico ? numeralEstrategico(p.codigo_estrategico) : p.codigo; }

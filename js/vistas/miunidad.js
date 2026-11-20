@@ -1,4 +1,4 @@
-import { html, useState, useEffect, sb, fecha, hoyISO, diasEntre, nombreMes, mesActualISO, mensajeError, codigoTexto } from '../lib.js';
+import { html, useState, useEffect, sb, fecha, hoyISO, diasEntre, nombreMes, mesActualISO, mensajeError, codigoTexto, colorDir } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Codigo } from '../componentes.js';
 
 export function MiUnidad({ ctx }) {
@@ -52,7 +52,7 @@ export function MiUnidad({ ctx }) {
 
   return html`
     <div class="encabezado"><div>
-      <h1>${esDirector ? 'Mi dirección' : 'Mi unidad'}: ${esDirector ? direccion?.sigla : unidad?.sigla}</h1>
+      <h1 style=${'border-left:6px solid ' + colorDir(direccion?.sigla).fuerte + ';padding-left:.6rem'}>${esDirector ? 'Mi dirección' : 'Mi unidad'}: ${esDirector ? direccion?.sigla : unidad?.sigla}</h1>
       <p>${esDirector ? direccion?.nombre : unidad?.nombre} · ${ps.length} proyectos</p></div></div>
     ${esDirector && !perfil.puede_editar && html`<${Aviso} tipo="info">Puede ver todos los proyectos de su dirección. Para editar, el administrador debe habilitarlo.<//>`}
     <div class="rejilla kpis" style="margin-bottom:1rem">

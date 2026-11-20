@@ -184,3 +184,12 @@ tr.grupo-est td { background: #e8f0f3; font-weight: 600; }
 tr.est-varios td { background: #f6f9fa; }
 tr.sub td:first-child { padding-left: 1.6rem; }
 tr.sub td { font-size: .9rem; }
+
+/* Escudo del GAMLP */
+.marca .logo.escudo { width: 46px; height: 58px; background: #fff; border-radius: 8px; padding: 3px; }
+.marca .logo.escudo img { width: 100%; height: 100%; object-fit: contain; }
+.escudo-ingreso { display: block; width: 110px; height: auto; margin: -.25rem auto .5rem; }
+/* Leyenda de colores por dirección */
+.leyenda-dir { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .82rem; color: var(--suave); margin: -.25rem 0 .75rem; }
+.leyenda-dir span { display: inline-flex; align-items: center; gap: .35rem; }
+.leyenda-dir i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }

@@ -170,7 +170,7 @@ function Aplicacion({ sesion }) {
     <div class="barra-sup"><b>Proyectos SMCI</b><button aria-label="Menú" onClick=${() => setMenu(!menu)}>☰</button></div>
     <div class="marco">
       <aside class="lateral ${menu ? 'abierto' : ''}">
-        <div class="marca"><div class="logo"><svg width="20" height="20" viewBox="0 0 32 32"><path d="M8 24V14m6 10V8m6 16v-9m6 9V12" stroke="#f2c14e" stroke-width="3.2" stroke-linecap="round"/></svg></div>
+        <div class="marca"><div class="logo escudo"><img src="iconos/escudo-gamlp.png" alt="Escudo del Gobierno Autónomo Municipal de La Paz" /></div>
           <div><b>Proyectos SMCI</b><small>Ciudad Inteligente · GAMLP</small></div></div>
         <nav class="nav">${items.map(([k, t]) => html`<a href="#/${k}" class=${activo === k ? 'activo' : ''}>${t}</a>`)}</nav>
         <div class="pie">

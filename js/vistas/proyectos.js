@@ -1,5 +1,5 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo } from '../componentes.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir } from '../lib.js';
+import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
 export function ListaProyectos({ ctx, modo = 'otros' }) {
@@ -47,11 +47,12 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
       </div>
     </div>
     <${Filtros} f=${f} setF=${setF} cat=${cat} meses=${meses} conTexto=${true} />
+    <${LeyendaDirecciones} cat=${cat} />
     ${esEst ? html`<${TablaEstrategicos} ps=${filtrada} cat=${cat} perfil=${perfil} />` : html`<div class="tabla-env"><table>
       <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
         <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
       <tbody>${grupos.map(g => html`
-        <tr class="grupo-dir"><td colspan="10">${g.d.sigla} · ${g.d.nombre}${!g.d.activa ? ' (inactiva)' : ''}</td></tr>
+        <tr class="grupo-dir"><td colspan="10" style=${'background:' + colorDir(g.d.sigla).fuerte + ';color:#fff'}>${g.d.sigla} · ${g.d.nombre}${!g.d.activa ? ' (inactiva)' : ''}</td></tr>
         ${g.unis.map(x => html`
           <tr class="grupo-uni"><td colspan="10">${x.u.sigla} · ${x.u.nombre} <span class="pill">${x.ps.length}</span></td></tr>
           ${x.ps.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} />`)}`)}`)}
@@ -65,11 +66,12 @@ const COLS_EST = [{ titulo: 'Programa', valor: p => p.estrategico_programa || ''
 
 // Fila de proyecto (misma estructura en las dos pestañas): código estratégico arriba y código SMCI debajo
 function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
+  const c = colorDir(p.direccion_sigla);
   return html`<tr class=${'clic' + (sub ? ' sub' : '')} onClick=${() => location.hash = '#/proyecto/' + p.id}>
-    <td class="nowrap">${celdaCodigo || html`<${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
+    <td class="nowrap" style=${'border-left:5px solid ' + c.fuerte}>${celdaCodigo || html`<${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
     <td>${celdaNombre || p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
       ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}
-      <br/><span class="ayuda">${p.unidad_sigla || (p.direccion_sigla ? p.direccion_sigla + ' · sin unidad' : '')}</span></td>
+      <br/><span class="pill" style=${'background:' + c.suave + ';color:' + c.fuerte + ';border:1px solid ' + c.fuerte}>${p.direccion_sigla}${p.unidad_sigla ? ' · ' + p.unidad_sigla : ' · sin unidad'}</span></td>
     <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
     <td><${Estado} e=${p.estado} /></td>
     <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
@@ -109,7 +111,7 @@ function TablaEstrategicos({ ps, cat, perfil }) {
             celdaNombre=${html`<b>${e.nombre}</b>${codigos.length ? html`<br/><span class="ayuda">${p.codigo}: ${p.nombre}</span>` : ''}`} />`;
         }
         return html`<tr class="est-varios">
-            <td class="nowrap">${celdaCodigo}</td>
+            <td class="nowrap" style=${'border-left:5px solid ' + colorDir(xs[0].direccion_sigla).fuerte}>${celdaCodigo}</td>
             <td><b>${e.nombre}</b><br/><span class="ayuda">${xs.length} proyectos SMCI vinculados (detalle abajo)</span></td>
             <td colspan="2" class="ayuda">${[...new Set(xs.map(p => p.estado))].join(' · ')}</td>
             <td style="min-width:120px"><${Barra} v=${prom(xs)} /><span class="ayuda">promedio</span></td>

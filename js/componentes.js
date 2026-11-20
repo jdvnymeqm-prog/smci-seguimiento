@@ -1,4 +1,9 @@
-import { html, useState, useEffect, ESTADOS, ESTADO_CLASE, fecha, pct, norm, mesActualISO, nombreMes, aISO, miles, leerMonto, codigoPrincipal } from './lib.js';
+import { html, useState, useEffect, ESTADOS, ESTADO_CLASE, fecha, pct, norm, mesActualISO, nombreMes, aISO, miles, leerMonto, codigoPrincipal, colorDir } from './lib.js';
+
+// Leyenda de colores por dirección
+export const LeyendaDirecciones = ({ cat }) => html`<div class="leyenda-dir">${(cat.direcciones || []).filter(d => d.activa).map(d => {
+  const c = colorDir(d.sigla);
+  return html`<span><i style=${'background:' + c.fuerte}></i>${d.sigla}</span>`; })}</div>`;
 
 // Código del proyecto: numeral estratégico arriba y código SMCI debajo
 export const Codigo = ({ p }) => p.codigo_estrategico
