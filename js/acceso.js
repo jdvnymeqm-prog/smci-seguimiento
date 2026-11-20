@@ -40,12 +40,24 @@ function ClaveInput({ value, onInput, autocomplete, required }) {
       title=${ver ? 'Ocultar contraseña' : 'Mostrar contraseña'}>${ver ? '🙈' : '👁'}</button></span>`;
 }
 
-function BotonInstalar() {
+function BotonInstalar({ claro }) {
   const [listo, setListo] = useState(!!window.__instalar);
+  const [ayuda, setAyuda] = useState(false);
   useEffect(() => { const f = () => setListo(!!window.__instalar); addEventListener('instalable', f); return () => removeEventListener('instalable', f); }, []);
-  if (!listo || matchMedia('(display-mode: standalone)').matches) return null;
-  const instalar = async () => { const e = window.__instalar; if (!e) return; e.prompt(); await e.userChoice; window.__instalar = null; setListo(false); };
-  return html`<button type="button" onClick=${instalar} style="width:100%;justify-content:center">⬇ Instalar aplicación</button>`;
+  if (matchMedia('(display-mode: standalone)').matches) return null;   // ya está instalada
+  async function instalar() {
+    const e = window.__instalar;
+    if (!e) return setAyuda(!ayuda);   // el navegador no ofrece el aviso: se muestran los pasos
+    e.prompt(); await e.userChoice; window.__instalar = null; setListo(false);
+  }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return html`<div style="display:grid;gap:.4rem">
+    <button type="button" onClick=${instalar} style=${claro ? '' : 'width:100%;justify-content:center'}>📱 Instalar la aplicación${listo ? '' : ' (celular o computadora)'}</button>
+    ${ayuda && html`<div class="aviso info" style="margin:0;font-size:.85rem">${ios
+      ? html`En iPhone, abra esta página en <b>Safari</b>, toque <b>Compartir</b> (□↑) y elija <b>«Agregar a inicio»</b>.`
+      : html`En Android, abra esta página en <b>Chrome</b>, toque el menú <b>⋮</b> (arriba a la derecha) y elija <b>«Instalar aplicación»</b> o <b>«Agregar a la pantalla principal»</b>. En la computadora, use el ícono de instalar en la barra de direcciones de Chrome o Edge.`}
+      <br/>Si tenía instalada la versión anterior (APK o la de GitHub), desinstálela primero.</div>`}
+  </div>`;
 }
 
 function Ingreso() {
@@ -76,8 +88,7 @@ function Ingreso() {
       <button type="button" style="width:100%;justify-content:center" onClick=${() => setRegistro(true)}>Crear mi cuenta</button>
     </div>
     <p class="ayuda" style="margin-top:1rem">¿Olvidó su contraseña? Pida al administrador que la restablezca.</p>
-    <div style="margin-top:.5rem;display:grid;gap:.4rem"><${BotonInstalar} />
-      <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 Descargar para Android (APK)</a></div>
+    <div style="margin-top:.5rem"><${BotonInstalar} /></div>
   </div></div>`;
 }
 
