@@ -8,7 +8,8 @@ import { CONFIG } from './config.js';
 export const html = htm.bind(h);
 export { h, render, useState, useEffect, useMemo, useRef, useCallback };
 
-export const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, {
+// Se reutiliza el cliente creado en acceso.js (una sola sesión en toda la página)
+export const sb = window.__smciSb || createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true },
 });
 
