@@ -74,9 +74,9 @@ function Ingreso() {
     if (er) setErr(error(er));
   }
   return html`<div class="ingreso"><div class="caja">
-    <small style="color:#5b6b74">Gobierno Autónomo Municipal de La Paz</small>
-    <h1>Seguimiento de Proyectos SMCI</h1>
-    <p>Secretaría Municipal de Ciudad Inteligente</p>
+    <img class="escudo-ingreso" src="iconos/escudo-gamlp.png" alt="Escudo del Gobierno Autónomo Municipal de La Paz" />
+    <h1 style="text-align:center">Seguimiento de Proyectos SMCI</h1>
+    <p style="text-align:center">Secretaría Municipal de Ciudad Inteligente</p>
     <${Aviso}>${err}<//>
     <form onSubmit=${entrar}>
       <label>Correo<input type="email" autocomplete="username" required value=${correo} onInput=${e => setCorreo(e.target.value)} /></label>

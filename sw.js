@@ -1,10 +1,10 @@
 // Service worker: permite instalar la aplicación en PC y Android y la hace arrancar rápido.
 // Los datos nunca se guardan aquí: siempre se piden a Supabase (requiere internet).
-const VERSION = 'smci-v27';
+const VERSION = 'smci-v28';
 // Solo lo público se guarda al instalar; el código de la aplicación (protegido) se guarda al usarlo con sesión
 const BASE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'js/acceso.js', 'js/config.js',
-  'iconos/icono-192.png', 'iconos/icono-512.png', 'iconos/icono-maskable-512.png', 'iconos/apple-touch-icon.png',
+  'iconos/icono-192.png', 'iconos/icono-512.png', 'iconos/icono-maskable-512.png', 'iconos/apple-touch-icon.png', 'iconos/escudo-gamlp.png',
 ];
 const CDN = ['esm.sh', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 

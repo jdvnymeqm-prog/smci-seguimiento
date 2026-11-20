@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana, codigoTexto, codigoPrincipal } from '../lib.js';
+import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana, codigoTexto, codigoPrincipal, colorDir } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
 import { ListaPropuestas } from './validaciones.js';
 
@@ -48,9 +48,9 @@ export function Ficha({ ctx, id }) {
   ];
   return html`
     <div class="panel">
-      <div class="ficha-cab">
+      <div class="ficha-cab" style=${'border-left:6px solid ' + colorDir(p.direccion_sigla).fuerte + ';padding-left:.9rem'}>
         <div style="min-width:0;flex:1">
-          <div class="acciones" style="margin-bottom:.3rem">${p.codigo_estrategico
+          <div class="acciones" style="margin-bottom:.3rem"><span class="pill" style=${'background:' + colorDir(p.direccion_sigla).fuerte + ';color:#fff'}>${p.direccion_sigla}${p.unidad_sigla ? ' · ' + p.unidad_sigla : ''}</span>${p.codigo_estrategico
               ? html`<span class="pill" style="background:#18465c;color:#fff" title=${'Proyecto estratégico Eje III · ' + (p.estrategico_nombre || '')}>${codigoPrincipal(p)}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="pill">${p.codigo}</span>` : ''}`
               : html`<span class="pill">${p.codigo}</span>`}
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
