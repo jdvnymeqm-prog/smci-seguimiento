@@ -34,16 +34,22 @@ import { Validaciones } from './vistas/validaciones.js';
 // Botón para instalar la aplicación en PC o Android (solo cuando el navegador lo permite)
 function BotonInstalar({ claro }) {
   const [listo, setListo] = useState(!!window.__instalar);
-  useEffect(() => {
-    const f = () => setListo(!!window.__instalar);
-    addEventListener('instalable', f); return () => removeEventListener('instalable', f);
-  }, []);
-  if (!listo || matchMedia('(display-mode: standalone)').matches) return null;
+  const [ayuda, setAyuda] = useState(false);
+  useEffect(() => { const f = () => setListo(!!window.__instalar); addEventListener('instalable', f); return () => removeEventListener('instalable', f); }, []);
+  if (matchMedia('(display-mode: standalone)').matches) return null;   // ya está instalada
   async function instalar() {
-    const e = window.__instalar; if (!e) return;
+    const e = window.__instalar;
+    if (!e) return setAyuda(!ayuda);   // el navegador no ofrece el aviso: se muestran los pasos
     e.prompt(); await e.userChoice; window.__instalar = null; setListo(false);
   }
-  return html`<button type="button" onClick=${instalar} style=${claro ? '' : 'width:100%;justify-content:center'}>⬇ Instalar aplicación</button>`;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return html`<div style="display:grid;gap:.4rem">
+    <button type="button" onClick=${instalar} style=${claro ? '' : 'width:100%;justify-content:center'}>📱 Instalar la aplicación${listo ? '' : ' (celular o computadora)'}</button>
+    ${ayuda && html`<div class="aviso info" style="margin:0;font-size:.85rem">${ios
+      ? html`En iPhone, abra esta página en <b>Safari</b>, toque <b>Compartir</b> (□↑) y elija <b>«Agregar a inicio»</b>.`
+      : html`En Android, abra esta página en <b>Chrome</b>, toque el menú <b>⋮</b> (arriba a la derecha) y elija <b>«Instalar aplicación»</b> o <b>«Agregar a la pantalla principal»</b>. En la computadora, use el ícono de instalar en la barra de direcciones de Chrome o Edge.`}
+      <br/>Si tenía instalada la versión anterior (APK o la de GitHub), desinstálela primero.</div>`}
+  </div>`;
 }
 
 // Aviso cuando no hay conexión (los datos siempre vienen de internet)
@@ -171,7 +177,6 @@ function Aplicacion({ sesion }) {
           <b>${perfil.nombre || perfil.correo}</b>
           ${perfil.cargo || (esSecretaria ? 'Despacho de la Secretaría' : ROLES[perfil.rol])}${unidad ? ' · ' + unidad.sigla : ''}
           <div style="margin-top:.6rem;display:grid;gap:.4rem"><${BotonInstalar} />
-            <a class="btn" href="descargas/Proyectos-SMCI.apk" download style="justify-content:center">📱 App Android (APK)</a>
             <${CambiarClave} />
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
