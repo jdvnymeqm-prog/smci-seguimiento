@@ -129,7 +129,7 @@ export function puedeCompletar(perfil, p, cat) {
 function CompletarDatos({ p, ctx, listo, fallo }) {
   const { perfil, cat } = ctx;
   const esUnidad = perfil.rol === 'jefe' || perfil.rol === 'responsable';
-  const unidades = cat.unidades.filter(u => u.activa && u.direccion_id === p.direccion_id && (!esUnidad || u.id === perfil.unidad_id));
+  const unidades = cat.unidades.filter(u => u.activa && u.direccion_id === p.direccion_id && (!esUnidad || perfil.edicion_abierta || u.id === perfil.unidad_id));
   const [d, setD] = useState({ unidad_id: esUnidad ? perfil.unidad_id : (unidades.length === 1 ? unidades[0].id : ''),
     responsable_id: p.responsable_id || '', nuevo: '', fecha_inicio: p.fecha_inicio || '', fecha_entrega: p.fecha_entrega_original || '' });
   const [abierto, setAbierto] = useState(false);
@@ -155,7 +155,7 @@ function CompletarDatos({ p, ctx, listo, fallo }) {
       : 'Asígnelo a la unidad que estará a cargo e indique el responsable.'}</p>
     ${!abierto ? html`<button class="prim" onClick=${() => setAbierto(true)}>Completar datos del proyecto</button>` : html`
       <div class="form">
-        <label>Unidad a cargo<select value=${d.unidad_id} disabled=${esUnidad} onChange=${e => setD({ ...d, unidad_id: e.target.value, responsable_id: '' })}>
+        <label>Unidad a cargo<select value=${d.unidad_id} disabled=${esUnidad && !perfil.edicion_abierta} onChange=${e => setD({ ...d, unidad_id: e.target.value, responsable_id: '' })}>
           <option value="">Elegir…</option>${unidades.map(u => html`<option value=${u.id}>${u.sigla} · ${u.nombre}</option>`)}</select></label>
         <label>Responsable<select value=${d.responsable_id} onChange=${e => setD({ ...d, responsable_id: e.target.value })}>
           <option value="">Elegir…</option>${personas.map(x => html`<option value=${x.id}>${x.nombre}</option>`)}

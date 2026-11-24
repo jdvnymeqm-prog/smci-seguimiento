@@ -282,6 +282,14 @@ function Estructura({ ctx }) {
     if (error) return setMsg({ err: mensajeError(error) });
     setEdit(null); setMsg({ ok: 'Guardado.' }); recargar();
   }
+  async function edicionAbierta(d, activa) {
+    if (!confirm(activa
+      ? `¿Abrir la edición en ${d.sigla}? Todo el personal y los jefes de ${d.sigla} podrán ver y proponer cambios en los proyectos de todas sus unidades (los cambios se siguen validando).`
+      : `¿Cerrar la edición abierta en ${d.sigla}? Cada persona volverá a ver y editar solo lo de su unidad.`)) return;
+    const { error } = await sb.rpc('cambiar_edicion_abierta', { p_direccion: d.id, p_activa: activa });
+    if (error) return setMsg({ err: mensajeError(error) });
+    setMsg({ ok: activa ? `Edición abierta en ${d.sigla}. El personal debe cerrar y volver a abrir la app para verla.` : `Edición de ${d.sigla} vuelta a la normalidad.` }); recargar();
+  }
   const D = cat.todasDirecciones, U = cat.todasUnidades;
   return html`<div class="panel">
     <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
@@ -291,7 +299,11 @@ function Estructura({ ctx }) {
     <p class="ayuda">Si una unidad no cuenta con jefe, los cambios que proponga los valida el director de su dirección. El «Personal de la Dirección» de cada dirección (y el «Personal del Despacho» de la Secretaría) es una unidad sin jefe: su avance lo valida el director de esa dirección. Si una unidad con jefe no tiene un usuario «Jefe/a de unidad» activo en la aplicación (aún no creado, desactivado o eliminado), sus cambios los valida automáticamente el director. El personal del Despacho de la Secretaría lo revisa y valida el Encargado de Planificación (administrador), que además puede validar todo.</p>
     ${D.map(d => html`<div class="panel" style="background:#fbfcfc">
       <div class="encabezado"><div><h3>${d.sigla} · ${d.nombre} ${d.es_despacho_secretaria ? html`<span class="pill">Despacho de la Secretaría</span>` : ''} ${!d.activa ? html`<span class="etiqueta">Inactiva</span>` : ''}</h3><p>Titular: ${d.titular || '—'}</p></div>
-        <button onClick=${() => setEdit({ tabla: 'direcciones', d })}>Editar</button></div>
+        <div class="acciones">${!d.es_despacho_secretaria && (d.edicion_abierta
+            ? html`<button class="peligro" onClick=${() => edicionAbierta(d, false)} title="Volver a lo normal: cada unidad edita lo suyo">🔒 Cerrar edición abierta</button>`
+            : html`<button onClick=${() => edicionAbierta(d, true)} title="Temporal: todo el personal de la dirección edita todas sus unidades">🔓 Abrir edición a toda la dirección</button>`)}
+          <button onClick=${() => setEdit({ tabla: 'direcciones', d })}>Editar</button></div></div>
+      ${d.edicion_abierta && html`<${Aviso} tipo="atencion">🔓 Edición abierta${d.edicion_abierta_desde ? ' desde el ' + fechaHora(d.edicion_abierta_desde) : ''}${d.edicion_abierta_por ? ' por ' + d.edicion_abierta_por : ''}: todo el personal de ${d.sigla} ve y propone cambios en todas sus unidades. Ciérrela al terminar la reorganización.<//>`}
       <div class="tabla-env"><table><thead><tr><th>Sigla</th><th>Unidad</th><th>Jefe/a</th><th>Antes</th><th>Activa</th><th></th></tr></thead>
         <tbody>${U.filter(u => u.direccion_id === d.id).map(u => html`<tr><td><b>${u.sigla}</b></td><td>${u.nombre}<br/><span class="ayuda">${u.descripcion || ''}</span></td>
           <td>${u.tiene_jefe === false ? html`<span class="etiqueta">Sin jefe</span><br/><span class="ayuda">Valida el director</span>`
