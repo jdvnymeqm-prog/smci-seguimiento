@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir, filasPlanGobierno } from '../lib.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, CodigoContinuidad, LeyendaDirecciones } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
@@ -87,47 +87,26 @@ function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
 // Cada proyecto estratégico es una fila; si tiene también código SMCI, va debajo del numeral.
 function TablaEstrategicos({ ps, cat, perfil }) {
   const E = cat.estrategicos || [];
-  const prom = xs => xs.length ? Math.round(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length * 10) / 10 : 0;
-  // Los 18 proyectos oficiales del Eje III (23.1 … 28.3), cada uno con los SMCI reportados con ese numeral.
-  // Los SMCI reportados solo con el código del programa (23, 24) van al final de su programa, agrupados
-  // como en el reporte del plan de gobierno («Mochila y material escolar», «Becas y convenios», …), sin numeral inventado.
-  const filasG = filasPlanGobierno(cat, ps);
-  const programas = E.filter(e => e.tipo === 'programa').map(pr => {
-    const delPrograma = ps.filter(p => p.codigo_estrategico === pr.codigo);
-    const grupos = filasG.filter(x => x.g.codigo === pr.numeral).map(x => ({ e: { codigo: pr.numeral, nombre: x.g.nombre }, xs: x.xs }));
-    const agrupados = new Set(grupos.flatMap(x => x.xs.map(p => p.id)));
-    return { pr, generales: delPrograma.filter(p => !agrupados.has(p.id)),
-      items: [...E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
-        .map(e => ({ e, xs: ps.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length), ...grupos] };
-  }).filter(x => x.items.length || x.generales.length);
-  const smci = xs => xs.filter(p => p.codigo !== p.codigo_estrategico);
-  const total = programas.reduce((a, x) => a + x.items.length + x.generales.length, 0);
+  // Cada proyecto es independiente: una fila por proyecto, con su numeral real arriba y su código SMCI debajo.
+  // Orden: programa (23…28) → numeral oficial (23.1 … 28.3) → proyectos con solo el código del programa.
+  const ordenE = Object.fromEntries(E.map(e => [e.codigo, e.orden]));
+  const programas = E.filter(e => e.tipo === 'programa').map(pr => ({
+    pr, filas: ps.filter(p => p.codigo_estrategico === pr.codigo || E.some(e => e.codigo === p.codigo_estrategico && e.programa === pr.codigo))
+      .sort((a, b) => ((ordenE[a.codigo_estrategico] ?? 0) - (ordenE[b.codigo_estrategico] ?? 0))
+        || ((a.codigo_estrategico === pr.codigo) - (b.codigo_estrategico === pr.codigo)) || a.codigo.localeCompare(b.codigo, 'es', { numeric: true })),
+  })).filter(x => x.filas.length);
+  const total = programas.reduce((a, x) => a + x.filas.length, 0);
+  const celda = (p, pr) => {
+    const num = html`<span class="cod-est">${p.codigo_estrategico === pr.codigo ? pr.numeral : p.codigo_estrategico}</span>`;
+    if (p.codigos_continuidad) return html`<${CodigoContinuidad} p=${p} previo=${html`${num}<br/>`} />`;
+    return html`${num}${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`;
+  };
   return html`<div class="tabla-env"><table class="tabla-est">
     <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
       <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
     <tbody>${programas.map(x => html`
-      <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.items.length + x.generales.length} ${x.items.length + x.generales.length === 1 ? 'proyecto' : 'proyectos'}</span></td></tr>
-      ${x.generales.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil}
-        celdaCodigo=${p.codigos_continuidad ? html`<${CodigoContinuidad} p=${p} previo=${html`<span class="cod-est">${x.pr.numeral}</span><br/>`} />` : html`<span class="cod-est">${x.pr.numeral}</span><span class="cod-smci">${p.codigo}</span>`} />`)}
-      ${x.items.map(({ e, xs }) => {
-        const codigos = smci(xs);
-        const celdaCodigo = xs.length === 1 && xs[0].codigos_continuidad
-          ? html`<${CodigoContinuidad} p=${xs[0]} previo=${html`<span class="cod-est">${e.codigo}</span><br/>`} />`
-          : html`<span class="cod-est">${e.codigo}</span>${codigos.map(p => html`<span class="cod-smci">${p.codigo}</span>`)}`;
-        if (xs.length === 1) {
-          const p = xs[0];
-          return html`<${FilaProyecto} p=${p} perfil=${perfil} celdaCodigo=${celdaCodigo}
-            celdaNombre=${html`<b>${e.nombre}</b>${codigos.length ? html`<br/><span class="ayuda">${p.codigo}: ${p.nombre}</span>` : ''}`} />`;
-        }
-        return html`<tr class="est-varios">
-            <td class="nowrap" style=${'border-left:5px solid ' + colorDir(xs[0].direccion_sigla).fuerte}>${celdaCodigo}</td>
-            <td><b>${e.nombre}</b><br/><span class="ayuda">${xs.length} proyectos SMCI vinculados (detalle abajo)</span></td>
-            <td colspan="2" class="ayuda">${[...new Set(xs.map(p => p.estado))].join(' · ')}</td>
-            <td style="min-width:120px"><${Barra} v=${prom(xs)} /><span class="ayuda">promedio</span></td>
-            <td colspan="5"></td></tr>
-          ${xs.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} sub=${true}
-            celdaCodigo=${p.codigos_continuidad ? html`<${CodigoContinuidad} p=${p} previo="↳ " />` : html`<span class="cod-smci">↳ ${p.codigo}</span>`} />`)}`;
-      })}`)}
+      <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.filas.length} ${x.filas.length === 1 ? 'proyecto' : 'proyectos'}</span></td></tr>
+      ${x.filas.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} celdaCodigo=${celda(p, x.pr)} />`)}`)}
     </tbody></table>
     ${!total && html`<div class="vacio">No hay proyectos dentro del plan de gobierno con estos filtros.</div>`}</div>`;
 }

@@ -15,7 +15,7 @@ export const CAMPOS = {
   fecha_entrega_vigente: 'Entrega vigente', fecha_vigente: 'Fecha vigente', situacion_actual: 'Situación actual', proximo_paso: 'Próximo paso',
   observaciones_falta: 'Observaciones (qué falta)', beneficiarios: 'Beneficiarios', presupuesto_programado: 'Presupuesto programado (Bs)',
   presupuesto_ejecutado: 'Presupuesto ejecutado (Bs)', motivo_cancelacion: 'Motivo de cancelación', fecha_fin_original: 'Fin', fecha_fin_vigente: 'Fin vigente',
-  peso: 'Peso', evidencia: 'Evidencia', observaciones: 'Observaciones', tipo: 'Tipo', periodo: 'Mes', ficha: 'Ficha', unidad_id: 'Unidad',
+  peso: 'Peso', tipo_centro: 'Tipo de centro', evidencia: 'Evidencia', observaciones: 'Observaciones', tipo: 'Tipo', periodo: 'Mes', ficha: 'Ficha', unidad_id: 'Unidad',
   resultado_cuantitativo: 'Resultado cuantitativo', problema_resultado: 'Resultado / problema', linea_base: 'Línea base', medida: 'Medida',
   evidencia_texto: 'Evidencias', url: 'Enlace', storage_path: 'Archivo', apoyos: 'Responsables de apoyo', por_validar: 'Por validar', por_validar_motivo: 'Motivo por validar',
 };

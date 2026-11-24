@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError, colorDir, filasPlanGobierno } from '../lib.js';
+import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError, colorDir } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
 import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
 
@@ -118,14 +118,10 @@ export function Tablero({ ctx }) {
   };
   // Dentro del plan: una barra por numeral (23, 23.1, 24, 24.1…), con el promedio de sus proyectos
   const E = cat.estrategicos || [];
-  // Una barra por cada proyecto oficial del Eje III (23.1 … 28.3) y, dentro de cada programa, una por cada grupo
-  // reportado solo con el código del programa (p. ej. 23 · Mochila y material escolar)
-  const filasG = filasPlanGobierno(cat, est);
-  const filasEst = E.filter(e => e.tipo === 'programa').flatMap(pr => [
-      ...E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo).map(e => ({ e, xs: est.filter(p => p.codigo_estrategico === e.codigo) })),
-      ...(filasG.some(x => x.g.codigo === pr.numeral)
-        ? filasG.filter(x => x.g.codigo === pr.numeral).map(x => ({ e: { numeral: pr.numeral, nombre: x.g.nombre, tipo: 'proyecto', programa: pr.codigo }, xs: x.xs }))
-        : [{ e: pr, xs: est.filter(p => p.codigo_estrategico === pr.codigo) }])])
+  // Dentro del plan: una barra por proyecto (cada proyecto es independiente), en el orden del Eje III
+  const filasEst = est.map(p => ({ e: { numeral: (E.find(e => e.codigo === p.codigo_estrategico) || {}).numeral || p.codigo_estrategico,
+      nombre: p.codigo === p.codigo_estrategico ? p.nombre : p.codigo + ' · ' + p.nombre, tipo: 'proyecto',
+      programa: (E.find(e => e.codigo === p.codigo_estrategico) || {}).programa || p.codigo_estrategico }, xs: [p] }))
     .filter(x => x.xs.length).map(({ e, xs }) => ({
     etiqueta: `${e.numeral}  ${corto(e.tipo === 'programa' ? 'Otras acciones del programa: ' + e.nombre : e.nombre)}`,
     titulo: `${e.numeral} ${e.tipo === 'programa' ? '(programa) ' : ''}${e.nombre}`,

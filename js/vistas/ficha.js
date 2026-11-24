@@ -351,6 +351,7 @@ function Tareas({ p, tareas, editable, ctx, listo, fallo }) {
     error ? fallo(error) : listo('Tarea eliminada.');
   }
   return html`
+    ${p.meta_productos && html`<${Entregas} p=${p} tareas=${tareas} editable=${editable} ctx=${ctx} listo=${listo} />`}
     <div class="panel"><h3>Línea de tiempo</h3><${Gantt} tareas=${tareas} p=${p} /></div>
     <div class="panel">
       <div class="encabezado"><div><h3>Tareas</h3><p>Peso total ${pesoTotal}. El avance del proyecto es Σ(peso × avance) / Σ peso.</p></div>
@@ -359,7 +360,7 @@ function Tareas({ p, tareas, editable, ctx, listo, fallo }) {
       <div class="tabla-env"><table>
         <thead><tr><th>Tarea</th><th>Responsable</th><th>Inicio</th><th>Fin original</th><th>Fin vigente</th><th class="num">Peso</th><th>Avance</th><th>Estado</th><th>Evidencia</th>${editable && html`<th></th>`}</tr></thead>
         <tbody>${tareas.map(t => html`<tr>
-          <td><span class="pill">${t.tipo}</span> ${t.codigo ? html`<span class="pill">${t.codigo}</span>` : ''}<br/>${t.nombre}</td>
+          <td><span class="pill">${t.tipo}</span> ${t.codigo ? html`<span class="pill">${t.codigo}</span>` : ''}${t.tipo_centro ? html` <span class="pill">${t.tipo_centro}</span>` : ''}<br/>${t.nombre}</td>
           <td>${(ctx.cat.personas.find(x => x.id === t.responsable_id) || {}).nombre || t.responsable_texto || '—'}</td>
           <td class="nowrap">${fecha(t.fecha_inicio)}</td><td class="nowrap">${fecha(t.fecha_fin_original)}</td>
           <td class="nowrap">${fecha(t.fecha_fin_vigente)}</td><td class="num">${t.peso}</td>
@@ -379,8 +380,67 @@ function Tareas({ p, tareas, editable, ctx, listo, fallo }) {
     ${edit && html`<${EditarTarea} t=${edit} p=${p} ctx=${ctx} onCerrar=${() => setEdit(null)} onGuardado=${m => { setEdit(null); listo(m); }} />`}`;
 }
 
+// ---------------------------------------------------------------------
+// Proyectos medidos por productos (mobiliario): cada entrega es un producto = un centro educativo atendido.
+// Avance = centros atendidos (productos concluidos) / meta (418). Las entregas nuevas se validan como siempre.
+const TIPOS_CENTRO = [['UE fiscal', 'Unidades educativas fiscales'], ['UE de convenio', 'Unidades educativas de convenio'],
+  ['CEE', 'Centros de educación especial'], ['CEA', 'Centros de educación alternativa']];
+
+function Entregas({ p, tareas, editable, ctx, listo }) {
+  const [nueva, setNueva] = useState(false);
+  const U = p.universo_productos || {};
+  const entregas = tareas.filter(t => t.tipo === 'Producto');
+  const atendidos = tipo => entregas.filter(t => t.estado === 'Concluida' && t.tipo_centro === tipo).length;
+  const total = entregas.filter(t => t.estado === 'Concluida').length;
+  const sinTipo = entregas.filter(t => t.estado === 'Concluida' && !t.tipo_centro).length;
+  return html`<div class="panel">
+    <div class="encabezado"><div><h3>Centros educativos atendidos</h3>
+      <p>Cada entrega de mobiliario se registra como un producto: el centro educativo que la recibió. Avance = centros atendidos / ${p.meta_productos}.</p></div>
+      <div class="acciones">${editable && html`<button class="prim" onClick=${() => setNueva(true)}>+ Registrar entrega de mobiliario</button>`}</div></div>
+    <div class="tabla-env"><table><thead><tr><th>Tipo de centro</th><th class="num">Atendidos</th><th class="num">Total</th><th>Avance</th></tr></thead>
+      <tbody>${TIPOS_CENTRO.map(([k, n]) => html`<tr><td>${n}</td><td class="num">${atendidos(k)}</td><td class="num">${U[k] ?? '—'}</td>
+          <td style="min-width:120px"><${Barra} v=${U[k] ? Math.round(1000 * atendidos(k) / U[k]) / 10 : 0} /></td></tr>`)}
+        ${sinTipo > 0 && html`<tr><td class="ayuda">Sin tipo indicado</td><td class="num">${sinTipo}</td><td></td><td></td></tr>`}
+        <tr><td><b>Total</b></td><td class="num"><b>${total}</b></td><td class="num"><b>${p.meta_productos}</b></td>
+          <td><${Barra} v=${Math.round(1000 * total / p.meta_productos) / 10} /></td></tr></tbody></table></div>
+    ${!entregas.length && html`<div class="vacio">Aún no hay entregas registradas como producto. ${editable ? 'Use «Registrar entrega de mobiliario».' : ''}</div>`}
+    ${nueva && html`<${NuevaEntrega} p=${p} ctx=${ctx} onCerrar=${() => setNueva(false)} onGuardado=${m => { setNueva(false); listo(m); }} />`}
+  </div>`;
+}
+
+function NuevaEntrega({ p, ctx, onCerrar, onGuardado }) {
+  const [d, setD] = useState({ nombre: '', tipo_centro: '', fecha: '', detalle: '', evidencia: '' });
+  const [err, setErr] = useState('');
+  const set = k => e => setD({ ...d, [k]: e.target.value });
+  async function guardar() {
+    if (!d.nombre.trim()) return setErr('Escriba el nombre del centro educativo.');
+    if (!d.tipo_centro) return setErr('Elija el tipo de centro educativo.');
+    if (!d.fecha) return setErr('Indique la fecha de entrega.');
+    const fila = { nombre: d.nombre.trim(), tipo: 'Producto', tipo_centro: d.tipo_centro, fecha_fin_original: d.fecha,
+      peso: 1, avance: 100, estado: 'Concluida', observaciones: d.detalle.trim() || null, evidencia: d.evidencia.trim() || null };
+    if (ctx.perfil.rol === 'admin') {
+      const { error } = await sb.from('tareas').insert({ ...fila, proyecto_id: p.id, fecha_fin_vigente: d.fecha }).select('id').single();
+      return error ? setErr(mensajeError(error)) : onGuardado('Entrega registrada.');
+    }
+    const { error } = await sb.rpc('proponer', { p_tipo: 'crear_tarea', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
+    error ? setErr(mensajeError(error)) : onGuardado('Entrega enviada a validación. Se sumará a los centros atendidos cuando la valide su jefe de unidad.');
+  }
+  return html`<${Modal} titulo="Registrar entrega de mobiliario" onCerrar=${onCerrar} acciones=${html`
+      <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
+    <${Aviso} tipo="error">${err}<//>
+    <div class="form">
+      <label class="ancho">Centro educativo que recibió el mobiliario<input value=${d.nombre} onInput=${set('nombre')} placeholder="p. ej. U.E. Natalia Palacios" /></label>
+      <label>Tipo de centro<select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Elija…</option>
+        ${TIPOS_CENTRO.map(([k, n]) => html`<option value=${k}>${n}</option>`)}</select></label>
+      <label>Fecha de entrega<${FechaInput} valor=${d.fecha} onCambio=${v => setD(x => ({ ...x, fecha: v }))} /></label>
+      <label class="ancho">Mobiliario entregado y estudiantes beneficiados<textarea value=${d.detalle} onInput=${set('detalle')} placeholder="p. ej. 20 mesas y 40 sillas; 40 estudiantes de primaria" /></label>
+      <label class="ancho">Evidencia (acta de entrega, enlace o referencia)<input value=${d.evidencia} onInput=${set('evidencia')} /></label>
+    </div>
+  <//>`;
+}
+
 const COL_TAREAS = [
-  { titulo: 'Código', campo: 'codigo' }, { titulo: 'Tipo', campo: 'tipo' }, { titulo: 'Tarea', campo: 'nombre', ancho: 50 },
+  { titulo: 'Código', campo: 'codigo' }, { titulo: 'Tipo', campo: 'tipo' }, { titulo: 'Tipo de centro', campo: 'tipo_centro' }, { titulo: 'Tarea', campo: 'nombre', ancho: 50 },
   { titulo: 'Inicio', valor: t => fecha(t.fecha_inicio) }, { titulo: 'Fin original', valor: t => fecha(t.fecha_fin_original) },
   { titulo: 'Fin vigente', valor: t => fecha(t.fecha_fin_vigente) }, { titulo: 'Peso', campo: 'peso' },
   { titulo: '% avance', excel: t => Number(t.avance), pdf: t => pct(t.avance) }, { titulo: 'Estado', campo: 'estado' },
