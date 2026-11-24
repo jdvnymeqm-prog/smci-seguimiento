@@ -96,13 +96,14 @@ function Aplicacion({ sesion }) {
   const [menu, setMenu] = useState(false);
 
   async function cargarCatalogos() {
-    const [p, d, u, pe, c, es] = await Promise.all([
+    const [p, d, u, pe, c, es, ve] = await Promise.all([
       sb.from('perfiles').select('*').eq('id', sesion.user.id).single(),
       sb.from('direcciones').select('*').order('orden'),
       sb.from('unidades').select('*').order('orden'),
       sb.from('personas').select('id,nombre,cargo,unidad_id,direccion_id,activa').order('nombre'),
       sb.from('config').select('*'),
       sb.from('estrategicos').select('*').order('orden'),
+      sb.rpc('unidades_que_veo'),
     ]);
     const e = p.error || d.error || u.error || pe.error || c.error || es.error;
     if (e) { setErr(mensajeError(e)); return; }
@@ -115,6 +116,8 @@ function Aplicacion({ sesion }) {
     setCat({
       direcciones: d.data, unidades: u.data, personas: pe.data, config, estrategicos: es.data,
       todasDirecciones: d.data, todasUnidades: u.data,
+      // Unidades que la base permite ver (si falla, solo la propia)
+      unidadesVisibles: new Set(ve.error ? [p.data.unidad_id] : (ve.data || []).map(x => x.unidades_que_veo || x)),
     });
   }
   useEffect(() => { cargarCatalogos(); }, []);
@@ -136,7 +139,7 @@ function Aplicacion({ sesion }) {
   const veTodo = esAdmin || esSecretaria;
   const esUnidad = perfil.rol === 'jefe' || perfil.rol === 'responsable';
   const dirVis = cat.direcciones.filter(x => x.activa && (veTodo || x.id === perfil.direccion_id));
-  const uniVis = cat.unidades.filter(x => x.activa && (veTodo || (esUnidad ? x.id === perfil.unidad_id : x.direccion_id === perfil.direccion_id)));
+  const uniVis = cat.unidades.filter(x => x.activa && (veTodo || (esUnidad ? (x.id === perfil.unidad_id || cat.unidadesVisibles?.has(x.id)) : x.direccion_id === perfil.direccion_id)));
   const perVis = veTodo ? cat.personas : cat.personas.filter(p => uniVis.some(u => u.id === p.unidad_id) || (!p.unidad_id && p.direccion_id === perfil.direccion_id));
   const catAct = { ...cat, direcciones: dirVis, unidades: uniVis, personas: perVis };
   const ctx = { perfil, cat: catAct, recargar: cargarCatalogos, sesion };
