@@ -55,7 +55,7 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
         <tr class="grupo-dir"><td colspan="10" style=${'background:' + colorDir(g.d.sigla).fuerte + ';color:#fff'}>${g.d.sigla} · ${g.d.nombre}${!g.d.activa ? ' (inactiva)' : ''}</td></tr>
         ${g.unis.map(x => html`
           <tr class="grupo-uni"><td colspan="10">${x.u.sigla} · ${x.u.nombre} <span class="pill">${x.ps.length}</span></td></tr>
-          ${x.ps.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} />`)}`)}`)}
+          ${x.ps.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} cat=${cat} />`)}`)}`)}
       </tbody></table>
       ${!filtrada.length && html`<div class="vacio">No hay proyectos con estos filtros.</div>`}
     </div>`}
@@ -65,14 +65,15 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
 const COLS_EST = [{ titulo: 'Programa', valor: p => p.estrategico_programa || '', ancho: 9 }, ...COLUMNAS_PROYECTO];
 
 // Fila de proyecto (misma estructura en las dos pestañas): código estratégico arriba y código SMCI debajo
-function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
+function FilaProyecto({ p, perfil, cat, celdaCodigo, celdaNombre, sub }) {
   const c = colorDir(p.direccion_sigla);
   return html`<tr class=${'clic' + (sub ? ' sub' : '')} onClick=${() => location.hash = '#/proyecto/' + p.id}>
     <td class="nowrap" style=${'border-left:5px solid ' + c.fuerte}>${celdaCodigo || html`<${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
     <td>${celdaNombre || p.nombre}${p.codigos_continuidad ? html` <span class="ayuda" title=${'Reúne: ' + p.codigos_continuidad}>↻ proyecto con continuidad</span>` : ''}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
       ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}
       <br/><span class="pill" style=${'background:' + c.suave + ';color:' + c.fuerte + ';border:1px solid ' + c.fuerte}>${p.direccion_sigla}${p.unidad_sigla ? ' · ' + p.unidad_sigla : ' · sin unidad'}</span></td>
-    <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
+    <td>${p.responsable_nombre || (cat && puedeEditar(perfil, p.unidad_id, p.direccion_id) && !bloqueoCambios(cat, perfil)
+      ? html`<${AsignarResponsable} p=${p} cat=${cat} perfil=${perfil} />` : html`<span class="etiqueta">Falta responsable</span>`)}</td>
     <td><${Estado} e=${p.estado} /></td>
     <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
     <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>
@@ -85,6 +86,22 @@ function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
 
 // Proyectos estratégicos con la estructura del Excel: Programa (E3P23…E3P28) → proyecto estratégico (23.1, 24.1…).
 // Cada proyecto estratégico es una fila; si tiene también código SMCI, va debajo del numeral.
+// Dato faltante en la lista: casilla para asignar el responsable sin abrir la ficha (se valida como cualquier cambio)
+function AsignarResponsable({ p, cat, perfil }) {
+  const [msg, setMsg] = useState('');
+  const personas = cat.personas.filter(x => x.activa !== false && (!p.unidad_id || x.unidad_id === p.unidad_id || (!x.unidad_id && x.direccion_id === p.direccion_id)));
+  async function elegir(id) {
+    if (!id) return;
+    const r = perfil.rol === 'admin'
+      ? await sb.from('proyectos').update({ responsable_id: id }).eq('id', p.id).select('id').single()
+      : await sb.rpc('proponer', { p_tipo: 'proyecto', p_proyecto: p.id, p_registro: null, p_datos: { cambios: { responsable_id: id } }, p_motivo: null });
+    setMsg(r.error ? mensajeError(r.error) : perfil.rol === 'admin' ? 'Asignado. Actualice la lista.' : 'Enviado a validación.');
+  }
+  return html`<span onClick=${e => e.stopPropagation()}>${msg ? html`<span class="ayuda">${msg}</span>` : html`
+    <select class="falta" value="" onChange=${e => elegir(e.target.value)} title="Falta responsable: elíjalo aquí">
+      <option value="">Asignar responsable…</option>${personas.map(x => html`<option value=${x.id}>${x.nombre}</option>`)}</select>`}</span>`;
+}
+
 function TablaEstrategicos({ ps, cat, perfil }) {
   const E = cat.estrategicos || [];
   // Cada proyecto es independiente: una fila por proyecto, con su numeral real arriba y su código SMCI debajo.
@@ -106,7 +123,7 @@ function TablaEstrategicos({ ps, cat, perfil }) {
       <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
     <tbody>${programas.map(x => html`
       <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.filas.length} ${x.filas.length === 1 ? 'proyecto' : 'proyectos'}</span></td></tr>
-      ${x.filas.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} celdaCodigo=${celda(p, x.pr)} />`)}`)}
+      ${x.filas.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} cat=${cat} celdaCodigo=${celda(p, x.pr)} />`)}`)}
     </tbody></table>
     ${!total && html`<div class="vacio">No hay proyectos dentro del plan de gobierno con estos filtros.</div>`}</div>`;
 }
