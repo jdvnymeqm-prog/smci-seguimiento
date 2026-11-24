@@ -129,6 +129,18 @@ export function codigoTexto(p) {
   const s = codigoSecundario(p);
   return codigoPrincipal(p) + (s ? ' (' + s + ')' : '');
 }
+// Proyectos dentro del plan de gobierno tal como se reportan cada mes (hoja «Proyectos de gobierno», Eje III: 23 a 28).
+// Cada fila trae su numeral real y, si se reportó así, los códigos SMCI vinculados («SMCI-09, 24» = SMCI-09 y SMCI-24).
+// Sin SMCI vinculado, la fila corresponde al proyecto registrado solo con su numeral (p. ej. 27.2).
+export function filasPlanGobierno(cat, ps) {
+  const porCodigo = Object.fromEntries(ps.map(p => [p.codigo, p]));
+  return (cat.proyectosGobierno || []).filter(g => /^2[3-8](\.|$)/.test(g.codigo)).map(g => {
+    const v = (g.proyectos_vinculados || '').split(',').map(s => s.trim()).filter(Boolean)
+      .map(s => /^\d+$/.test(s) ? 'SMCI-' + s.padStart(2, '0') : s);
+    const xs = (v.length ? v : [g.codigo]).map(c => porCodigo[c]).filter(Boolean);
+    return { g, programa: g.codigo.split('.')[0], xs };
+  }).filter(x => x.xs.length);
+}
 export function codigoSecundario(p) { return p.codigo_estrategico && p.codigo !== p.codigo_estrategico ? p.codigo : null; }
 
 // ---------- Validación: jefe de unidad o, si la unidad no tiene jefe, el director ----------

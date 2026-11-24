@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError, colorDir } from '../lib.js';
+import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError, colorDir, filasPlanGobierno } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
 import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
 
@@ -118,7 +118,10 @@ export function Tablero({ ctx }) {
   };
   // Dentro del plan: una barra por numeral (23, 23.1, 24, 24.1…), con el promedio de sus proyectos
   const E = cat.estrategicos || [];
-  const filasEst = E.map(e => ({ e, xs: est.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length).map(({ e, xs }) => ({
+  const filasG = filasPlanGobierno(cat, est);
+  const filasEst = (filasG.length
+    ? filasG.map(x => ({ e: { numeral: x.g.codigo, nombre: x.g.nombre, tipo: 'proyecto', programa: 'E3P' + x.programa }, xs: x.xs }))
+    : E.map(e => ({ e, xs: est.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length)).map(({ e, xs }) => ({
     etiqueta: `${e.numeral}  ${corto(e.tipo === 'programa' ? 'Otras acciones del programa: ' + e.nombre : e.nombre)}`,
     titulo: `${e.numeral} ${e.tipo === 'programa' ? '(programa) ' : ''}${e.nombre}`,
     avance: prom(xs.filter(p => p.estado !== 'Cancelada').length ? xs.filter(p => p.estado !== 'Cancelada') : xs),
