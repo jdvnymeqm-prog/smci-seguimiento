@@ -55,17 +55,17 @@ function Usuarios({ ctx }) {
             <button class="peligro" onClick=${() => rechazar(u)}>Rechazar</button></div></td><td>${u.nombre || '—'}<br/><span class="ayuda">${u.solicitud_cargo || ''}</span></td><td>${u.correo}</td>
           <td>${dir(u.solicitud_direccion_id)}${u.solicitud_unidad_id ? ' · ' + uni(u.solicitud_unidad_id) : ' (dirección)'}</td>
           <td class="nowrap">${fechaHora(u.solicitud_en)}</td></tr>`)}</tbody></table></div></div>`}
-    <div class="encabezado"><div><h3>Usuarios</h3><p>${cuentas.length} cuentas. Cuando alguien deje su cargo, desactive su cuenta y apruebe la de la persona que lo reemplaza.</p></div>
+    <div class="encabezado"><div><h3>Usuarios</h3><p>${cuentas.length} cuentas. Cuando alguien deje su cargo, pulse «Editar» y luego «Eliminar usuario» (o desactívelo si es temporal), y apruebe la cuenta de quien lo reemplaza.</p></div>
       <button class="prim" onClick=${() => setEdit({ nuevo: true, rol: 'responsable', activo: true })}>+ Nuevo usuario</button></div>
     <div class="tabla-env"><table><thead><tr><th></th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Dirección</th><th>Unidad</th><th>Puede editar</th><th>Activo</th></tr></thead>
       <tbody>${cuentas.map(u => html`<tr><td><button onClick=${() => setEdit(u)}>Editar</button></td><td>${u.nombre || '—'}${u.estado_acceso === 'rechazado' ? html` <span class="etiqueta">Rechazada</span>` : ''}<br/><span class="ayuda">${u.cargo || ''}</span></td><td>${u.correo}</td><td>${ROLES[u.rol]}</td>
         <td>${dir(u.direccion_id)}</td><td>${uni(u.unidad_id)}</td><td>${u.rol === 'director' ? (u.puede_editar ? 'Sí' : 'No') : '—'}</td>
         <td>${u.activo ? 'Sí' : html`<b style="color:#b3261e">No</b>`}</td></tr>`)}</tbody></table></div>
-    ${edit && html`<${EditarUsuario} u=${edit} cat=${cat} onCerrar=${() => setEdit(null)} onListo=${m => { setEdit(null); setMsg({ ok: m }); cargar(); }} />`}
+    ${edit && html`<${EditarUsuario} u=${edit} cat=${cat} yo=${ctx.perfil.id} onCerrar=${() => setEdit(null)} onListo=${m => { setEdit(null); setMsg({ ok: m }); cargar(); }} />`}
   </div>`;
 }
 
-function EditarUsuario({ u, cat, onCerrar, onListo }) {
+function EditarUsuario({ u, cat, yo, onCerrar, onListo }) {
   const [d, setD] = useState({ ...u });
   const [clave, setClave] = useState('');
   const [err, setErr] = useState('');
@@ -100,7 +100,21 @@ function EditarUsuario({ u, cat, onCerrar, onListo }) {
     }
     onListo('Usuario actualizado.');
   }
+  // Baja definitiva: la persona ya no puede ingresar; su historial se conserva con su nombre
+  async function eliminar() {
+    const quien = u.nombre || u.correo;
+    if (!confirm(`¿Eliminar definitivamente la cuenta de ${quien}?\n\nYa no podrá ingresar a la aplicación. Sus proyectos, tareas, reportes, validaciones y la bitácora se conservan con su nombre. Esta acción no se puede deshacer.`)) return;
+    const motivo = prompt('Motivo (opcional), por ejemplo «Desvinculado el 20/11/2026»:', '') ?? null;
+    if (motivo === null) return;
+    setErr('');
+    const r = await sb.functions.invoke('admin-usuarios', { body: { accion: 'eliminar', id: u.id, motivo } });
+    let m = r.data?.error;
+    if (r.error && !m) { try { m = (await r.error.context.json()).error; } catch { m = mensajeError(r.error); } }
+    if (m) return setErr(m);
+    onListo(`Cuenta de ${quien} eliminada. Su historial se conserva.`);
+  }
   return html`<${Modal} titulo=${u.nuevo ? 'Nuevo usuario' : u.aprobar ? 'Aprobar solicitud' : 'Editar usuario'} onCerrar=${onCerrar} acciones=${html`
+      ${!u.nuevo && !u.aprobar && u.id !== yo && html`<button class="peligro" style="margin-right:auto" onClick=${eliminar}>🗑 Eliminar usuario</button>`}
       <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
     <${Aviso} tipo="error">${err}<//>
     <div class="form">
@@ -116,6 +130,7 @@ function EditarUsuario({ u, cat, onCerrar, onListo }) {
         <option value="">Elegir…</option>${unidades.map(x => html`<option value=${x.id}>${x.sigla} · ${x.nombre}</option>`)}</select></label>`}
       ${d.rol === 'director' && html`<label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${!!d.puede_editar} onChange=${set('puede_editar')} /> Puede editar proyectos de su dirección</label>`}
       <label style="flex-direction:row;align-items:center;gap:.5rem"><input type="checkbox" style="width:auto" checked=${!!d.activo} onChange=${set('activo')} /> Usuario activo</label>
+      ${!u.nuevo && !u.aprobar && u.id !== yo && html`<p class="ayuda ancho" style="margin:0">Para una ausencia temporal, desmarque «Usuario activo» (podrá reactivarlo). Si la persona fue desvinculada, use «Eliminar usuario»: la cuenta se borra y ya no podrá ingresar, pero su historial se conserva.</p>`}
     </div>
   <//>`;
 }
