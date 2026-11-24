@@ -112,7 +112,9 @@ function Aplicacion({ sesion }) {
     const config = Object.fromEntries(c.data.map(x => [x.clave, x.valor]));
     const ordenDir = Object.fromEntries(d.data.map(x => [x.id, x.orden]));
     u.data.sort((a, b) => (ordenDir[a.direccion_id] - ordenDir[b.direccion_id]) || (a.orden - b.orden));
-    setPerfil(p.data);
+    // Edición abierta temporal en su dirección (la activa el administrador; la base la vuelve a verificar)
+    const miDir = d.data.find(x => x.id === p.data.direccion_id);
+    setPerfil({ ...p.data, edicion_abierta: !!miDir?.edicion_abierta });
     setCat({
       direcciones: d.data, unidades: u.data, personas: pe.data, config, estrategicos: es.data,
       todasDirecciones: d.data, todasUnidades: u.data,
@@ -184,7 +186,7 @@ function Aplicacion({ sesion }) {
             <button onClick=${() => sb.auth.signOut()}>Cerrar sesión</button></div>
         </div>
       </aside>
-      <main class="contenido">${esAdmin && faltaRespaldoMes(cat.config) && html`<${Aviso} tipo="atencion">💾 Falta el respaldo de este mes (no hay respaldo en Drive ni en la computadora). <a href="#/admin?pestana=config">Descargarlo ahora</a><//>`}${(r.vista !== 'tablero' || location.hash.includes('?')) && html`<div class="barra-atras"><button type="button" class="btn-atras" onClick=${atras} title="Volver a la pantalla anterior">← Atrás</button></div>`}${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
+      <main class="contenido">${esAdmin && faltaRespaldoMes(cat.config) && html`<${Aviso} tipo="atencion">💾 Falta el respaldo de este mes (no hay respaldo en Drive ni en la computadora). <a href="#/admin?pestana=config">Descargarlo ahora</a><//>`}${(r.vista !== 'tablero' || location.hash.includes('?')) && html`<div class="barra-atras"><button type="button" class="btn-atras" onClick=${atras} title="Volver a la pantalla anterior">← Atrás</button></div>`}${!esAdmin && perfil.edicion_abierta && (perfil.rol === 'jefe' || perfil.rol === 'responsable') && html`<${Aviso} tipo="info">🔓 Edición abierta temporal en su dirección: puede ver y proponer cambios en los proyectos de todas sus unidades (por ejemplo, asignar nuevos responsables). Los cambios se siguen validando como siempre.<//>`}${esAdmin && cat.direcciones.some(x => x.edicion_abierta) && html`<${Aviso} tipo="atencion">🔓 Edición abierta en: ${cat.direcciones.filter(x => x.edicion_abierta).map(x => x.sigla).join(', ')}. Cuando termine la reorganización, ciérrela en <a href="#/admin?pestana=estructura">Administración → Estructura</a>.<//>`}${cat.config.bloqueo_cambios?.activo && html`<${Aviso} tipo=${esAdmin ? 'atencion' : 'error'}>
         🔒 ${esAdmin ? 'Usted bloqueó los cambios para todos los usuarios.' : 'El administrador bloqueó temporalmente los cambios. Puede consultar la información, pero no enviar ni validar cambios.'}
         ${cat.config.bloqueo_cambios.motivo ? ' Motivo: ' + cat.config.bloqueo_cambios.motivo + '.' : ''}
         ${esAdmin ? html` <a href="#/admin">Desbloquear</a>` : ''}<//>`}${vista}</main>
