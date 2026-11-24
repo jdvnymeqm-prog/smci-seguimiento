@@ -1,6 +1,6 @@
 // Service worker: permite instalar la aplicación en PC y Android y la hace arrancar rápido.
 // Los datos nunca se guardan aquí: siempre se piden a Supabase (requiere internet).
-const VERSION = 'smci-v40';
+const VERSION = 'smci-v41';
 // Solo lo público se guarda al instalar; el código de la aplicación (protegido) se guarda al usarlo con sesión
 const BASE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css', 'js/acceso.js', 'js/config.js',
