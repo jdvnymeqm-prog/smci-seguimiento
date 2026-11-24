@@ -7,3 +7,9 @@ alter table public.tareas add column if not exists tipo_centro text
   check (tipo_centro is null or tipo_centro in ('UE fiscal','UE de convenio','CEE','CEA'));
 alter table public.proyectos add column if not exists meta_productos integer check (meta_productos is null or meta_productos > 0),
   add column if not exists universo_productos jsonb;
+
+-- 28b. Cantidades por entrega: tareas.cantidad (mobiliario entregado) y tareas.estudiantes (beneficiados);
+--      validar_propuesta los guarda al crear o corregir una entrega.
+alter table public.tareas
+  add column if not exists cantidad integer check (cantidad is null or cantidad >= 0),
+  add column if not exists estudiantes integer check (estudiantes is null or estudiantes >= 0);
