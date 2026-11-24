@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir } from '../lib.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir, filasPlanGobierno } from '../lib.js';
 import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
@@ -88,11 +88,15 @@ function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
 function TablaEstrategicos({ ps, cat, perfil }) {
   const E = cat.estrategicos || [];
   const prom = xs => xs.length ? Math.round(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length * 10) / 10 : 0;
+  // Filas tal como el reporte mensual del plan de gobierno (nombre y numeral reales, con sus SMCI vinculados)
+  const filasG = filasPlanGobierno(cat, ps);
   const programas = E.filter(e => e.tipo === 'programa').map(pr => ({
-    pr, generales: ps.filter(p => p.codigo_estrategico === pr.codigo),
-    items: E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
-      .map(e => ({ e, xs: ps.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length),
-  })).filter(x => x.items.length || x.generales.length);
+    pr, generales: [],
+    items: filasG.length
+      ? filasG.filter(x => x.programa === pr.numeral).map(x => ({ e: { codigo: x.g.codigo, nombre: x.g.nombre }, xs: x.xs }))
+      : E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
+        .map(e => ({ e, xs: ps.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length),
+  })).filter(x => x.items.length);
   const smci = xs => xs.filter(p => p.codigo !== p.codigo_estrategico);
   const total = programas.reduce((a, x) => a + x.items.length + x.generales.length, 0);
   return html`<div class="tabla-env"><table class="tabla-est">
