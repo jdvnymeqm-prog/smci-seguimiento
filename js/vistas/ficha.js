@@ -426,6 +426,7 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
     <div class="rejilla kpis" style="margin-bottom:.8rem">
       <div class="kpi"><div class="v">${nCentros} / ${p.meta_productos}</div><div class="t">centros atendidos · ${pct1(nCentros, p.meta_productos)} %</div></div>
       <div class="kpi"><div class="v">${totJuegos}</div><div class="t">juegos de mobiliario entregados</div></div>
+      <div class="kpi"><div class="v">${totJuegos} / ${2 * totJuegos}</div><div class="t">mesas / sillas (1 juego = 1 mesa + 2 sillas)</div></div>
       <div class="kpi"><div class="v">${hechas.length}</div><div class="t">entregas registradas</div></div></div>
     <div class="tabla-env"><table><thead><tr><th>Tipo de centro educativo</th><th class="num">Atendidos</th><th class="num">Total</th><th>Avance</th><th class="num">Juegos</th></tr></thead>
       <tbody>${[...TIPOS_CENTRO, ...(de('').length ? [['', 'Sin tipo indicado']] : [])].map(([k, n]) => html`<tr><td>${n}</td>
@@ -433,10 +434,10 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
           <td style="min-width:120px">${U[k] ? html`<${Barra} v=${pct1(centrosDe(de(k)), U[k])} />` : ''}</td><td class="num">${sumJ(de(k))}</td></tr>`)}
         <tr><td><b>Total</b></td><td class="num"><b>${nCentros}</b></td><td class="num"><b>${p.meta_productos}</b></td>
           <td><${Barra} v=${pct1(nCentros, p.meta_productos)} /></td><td class="num"><b>${totJuegos}</b></td></tr></tbody></table></div>
-    <div class="tabla-env" style="margin-top:.8rem"><table><thead><tr><th>Juegos de mobiliario por nivel</th><th class="num">Juegos</th><th class="num">% del total</th></tr></thead>
-      <tbody>${porNivel.filter(([, v]) => v > 0).map(([n, v]) => html`<tr><td>${n}</td><td class="num">${v}</td><td class="num">${pct1(v, totJuegos)} %</td></tr>`)}
-        ${sinNivel > 0 && html`<tr><td class="ayuda">Sin nivel indicado</td><td class="num">${sinNivel}</td><td class="num">${pct1(sinNivel, totJuegos)} %</td></tr>`}
-        <tr><td><b>Total</b></td><td class="num"><b>${totJuegos}</b></td><td class="num">${totJuegos ? '100 %' : '—'}</td></tr></tbody></table></div>
+    <div class="tabla-env" style="margin-top:.8rem"><table><thead><tr><th>Juegos de mobiliario por nivel</th><th class="num">Juegos</th><th class="num">Mesas</th><th class="num">Sillas</th><th class="num">% del total</th></tr></thead>
+      <tbody>${porNivel.filter(([, v]) => v > 0).map(([n, v]) => html`<tr><td>${n}</td><td class="num">${v}</td><td class="num">${v}</td><td class="num">${2 * v}</td><td class="num">${pct1(v, totJuegos)} %</td></tr>`)}
+        ${sinNivel > 0 && html`<tr><td class="ayuda">Sin nivel indicado</td><td class="num">${sinNivel}</td><td class="num">${sinNivel}</td><td class="num">${2 * sinNivel}</td><td class="num">${pct1(sinNivel, totJuegos)} %</td></tr>`}
+        <tr><td><b>Total</b></td><td class="num"><b>${totJuegos}</b></td><td class="num"><b>${totJuegos}</b></td><td class="num"><b>${2 * totJuegos}</b></td><td class="num">${totJuegos ? '100 %' : '—'}</td></tr></tbody></table></div>
     <div class="tabs" style="margin-top:1rem">
       <button class=${vista === 'entregas' ? 'activo' : ''} onClick=${() => setVista('entregas')}>Por entrega (${entregas.length})</button>
       <button class=${vista === 'centros' ? 'activo' : ''} onClick=${() => setVista('centros')}>Por centro educativo (${centros.length})</button></div>
@@ -444,7 +445,7 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
       : vista === 'entregas' ? html`
       <div class="tabla-env"><table><thead><tr><th>Fecha</th><th>Centro educativo</th><th>Tipo</th><th class="num">Juegos</th><th>Por nivel</th><th>Detalle</th><th>Evidencia</th>${editable && html`<th></th>`}</tr></thead>
         <tbody>${entregas.map(t => html`<tr>
-          <td class="nowrap">${fecha(t.fecha_fin_original)}</td><td><b>${t.nombre}</b></td><td>${nombreTipo(t.tipo_centro)}</td>
+          <td class="nowrap">${fecha(t.fecha_fin_original)}</td><td><b>${t.nombre}</b></td><td>${t.tipo_centro ? nombreTipo(t.tipo_centro) : html`<span class="etiqueta" title="Use «Corregir» para indicar el tipo de unidad educativa">Completar tipo</span>`}</td>
           <td class="num"><b>${t.cantidad ?? '—'}</b></td><td class="ayuda">${nivTxt(t)}</td>
           <td class="prewrap">${t.observaciones || '—'}</td><td>${t.evidencia || '—'}</td>
           ${editable && html`<td><button onClick=${() => setForm(t)}>Corregir</button></td>`}</tr>`)}</tbody></table></div>`
@@ -458,6 +459,7 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
 const COL_ENTREGAS = [
   { titulo: 'Fecha de entrega', valor: t => fecha(t.fecha_fin_original) }, { titulo: 'Centro educativo', campo: 'nombre', ancho: 40 },
   { titulo: 'Tipo de centro', campo: 'tipo_centro' }, { titulo: 'Juegos de mobiliario', campo: 'cantidad' },
+  { titulo: 'Mesas', valor: t => t.cantidad ?? '' }, { titulo: 'Sillas', valor: t => t.cantidad == null ? '' : 2 * t.cantidad },
   ...NIVELES.map(n => ({ titulo: 'Juegos · ' + n, valor: t => (t.niveles || {})[n] ?? '' })),
   { titulo: 'Estudiantes beneficiados', campo: 'estudiantes' }, { titulo: 'Detalle', campo: 'observaciones', ancho: 50 },
   { titulo: 'Evidencia', campo: 'evidencia', ancho: 30 }, { titulo: 'Estado', campo: 'estado' },
@@ -466,17 +468,22 @@ const COL_ENTREGAS = [
 function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
   const nueva = !t.id;
   const [d, setD] = useState({ nombre: t.nombre || '', tipo_centro: t.tipo_centro || '', fecha: t.fecha_fin_original || '',
-    niveles: { ...(t.niveles || {}) }, estudiantes: t.estudiantes ?? '', detalle: t.observaciones || '', evidencia: t.evidencia || '' });
+    lineas: Object.entries(t.niveles || {}).length ? Object.entries(t.niveles).map(([nivel, juegos]) => ({ nivel, juegos }))
+      : [{ nivel: '', juegos: t.cantidad ?? '' }],
+    estudiantes: t.estudiantes ?? '', detalle: t.observaciones || '', evidencia: t.evidencia || '' });
   const [err, setErr] = useState('');
   const set = k => e => setD({ ...d, [k]: e.target.value });
   const entero = v => v === '' || v === null || v === undefined ? null : Math.max(0, Math.round(Number(v)));
-  const niv = Object.fromEntries(NIVELES.map(n => [n, entero(d.niveles[n])]).filter(([, v]) => v));
-  const total = Object.values(niv).reduce((a, v) => a + v, 0);
+  const niv = {};
+  d.lineas.forEach(l => { const v = entero(l.juegos); if (l.nivel && v) niv[l.nivel] = (niv[l.nivel] || 0) + v; });
+  const total = d.lineas.reduce((a, l) => a + (entero(l.juegos) || 0), 0);
+  const linea = (i, k, v) => setD(x => ({ ...x, lineas: x.lineas.map((l, j) => j === i ? { ...l, [k]: v } : l) }));
   async function guardar() {
     if (!d.nombre.trim()) return setErr('Escriba el nombre del centro educativo.');
     if (!d.tipo_centro) return setErr('Elija el tipo de centro educativo.');
     if (!d.fecha) return setErr('Indique la fecha de entrega.');
-    if (!total) return setErr('Indique cuántos juegos de mobiliario se entregaron (al menos en un nivel).');
+    if (!total) return setErr('Indique la cantidad de juegos de mobiliario entregados.');
+    if (d.lineas.some(l => entero(l.juegos) && !l.nivel)) return setErr('Elija el nivel al que pertenecen los juegos de cada fila.');
     const fila = { nombre: d.nombre.trim().replace(/\s+/g, ' '), tipo_centro: d.tipo_centro, cantidad: total, niveles: niv,
       estudiantes: entero(d.estudiantes), observaciones: d.detalle.trim() || null, evidencia: d.evidencia.trim() || null };
     const admin = ctx.perfil.rol === 'admin';
@@ -503,17 +510,22 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
     <div class="form">
       <label class="ancho">Nombre del centro educativo que recibió el mobiliario<input value=${d.nombre} onInput=${set('nombre')} placeholder="p. ej. U.E. Natalia Palacios" />
         <span class="ayuda">Escríbalo siempre igual: si el mismo centro recibe otra entrega, se suman los juegos pero cuenta una sola vez en los 418.</span></label>
-      <label>Tipo de centro educativo<select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Elija…</option>
+      <label>Tipo de unidad educativa a la que se entregó<select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Elija…</option>
         ${TIPOS_CENTRO.map(([k, n]) => html`<option value=${k}>${n}</option>`)}</select></label>
       <label>Fecha de entrega<${FechaInput} valor=${d.fecha} disabled=${!nueva && ctx.perfil.rol !== 'admin'} onCambio=${v => setD(x => ({ ...x, fecha: v }))} />
         ${!nueva && ctx.perfil.rol !== 'admin' && html`<span class="ayuda">La fecha la corrige el administrador.</span>`}</label>
       <fieldset class="ancho" style="border:1px solid var(--borde,#d6dde1);border-radius:8px;padding:.6rem .8rem">
-        <legend>Juegos de mobiliario entregados por nivel</legend>
-        <div class="form" style="margin:0">${NIVELES.map(n => html`<label>${n}<input type="number" min="0" step="1" value=${d.niveles[n] ?? ''}
-          onInput=${e => setD(x => ({ ...x, niveles: { ...x.niveles, [n]: e.target.value } }))} /></label>`)}</div>
-        <p style="margin:.4rem 0 0"><b>Total de juegos: ${total}</b></p></fieldset>
+        <legend>Juegos de mobiliario entregados <span class="ayuda">(1 juego = 1 mesa + 2 sillas)</span></legend>
+        ${d.lineas.map((l, i) => html`<div class="form" style="margin:0 0 .4rem;align-items:end">
+          <label>Nivel al que pertenecen los juegos<select value=${l.nivel} onChange=${e => linea(i, 'nivel', e.target.value)}>
+            <option value="">Elija…</option>${NIVELES.map(n => html`<option>${n}</option>`)}</select></label>
+          <label>Cantidad de juegos<input type="number" min="0" step="1" value=${l.juegos} onInput=${e => linea(i, 'juegos', e.target.value)} /></label>
+          ${d.lineas.length > 1 && html`<button type="button" onClick=${() => setD(x => ({ ...x, lineas: x.lineas.filter((_, j) => j !== i) }))}>Quitar</button>`}
+        </div>`)}
+        <button type="button" onClick=${() => setD(x => ({ ...x, lineas: [...x.lineas, { nivel: '', juegos: '' }] }))}>+ Otro nivel en la misma entrega</button>
+        <p style="margin:.5rem 0 0"><b>Total: ${total} juegos = ${total} mesas y ${2 * total} sillas</b></p></fieldset>
       <label>Estudiantes beneficiados (opcional)<input type="number" min="0" step="1" value=${d.estudiantes} onInput=${set('estudiantes')} /></label>
-      <label class="ancho">Detalle (opcional)<textarea value=${d.detalle} onInput=${set('detalle')} placeholder="p. ej. juego = 1 mesa bipersonal + 2 sillas; cursos de 3.º y 4.º" /></label>
+      <label class="ancho">Detalle (opcional)<textarea value=${d.detalle} onInput=${set('detalle')} placeholder="p. ej. cursos de 3.º y 4.º de primaria; macrodistrito Sur" /></label>
       <label class="ancho">Evidencia (acta de entrega, enlace o referencia)<input value=${d.evidencia} onInput=${set('evidencia')} /></label>
     </div>
     ${!nueva && ctx.perfil.rol !== 'admin' && html`<${Aviso} tipo="info">Si la entrega ya fue validada hace menos de 72 horas, la corrección necesita un permiso del administrador.<//>`}
