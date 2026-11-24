@@ -118,10 +118,15 @@ export function Tablero({ ctx }) {
   };
   // Dentro del plan: una barra por numeral (23, 23.1, 24, 24.1…), con el promedio de sus proyectos
   const E = cat.estrategicos || [];
+  // Una barra por cada proyecto oficial del Eje III (23.1 … 28.3) y, dentro de cada programa, una por cada grupo
+  // reportado solo con el código del programa (p. ej. 23 · Mochila y material escolar)
   const filasG = filasPlanGobierno(cat, est);
-  const filasEst = (filasG.length
-    ? filasG.map(x => ({ e: { numeral: x.g.codigo, nombre: x.g.nombre, tipo: 'proyecto', programa: 'E3P' + x.programa }, xs: x.xs }))
-    : E.map(e => ({ e, xs: est.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length)).map(({ e, xs }) => ({
+  const filasEst = E.filter(e => e.tipo === 'programa').flatMap(pr => [
+      ...E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo).map(e => ({ e, xs: est.filter(p => p.codigo_estrategico === e.codigo) })),
+      ...(filasG.some(x => x.g.codigo === pr.numeral)
+        ? filasG.filter(x => x.g.codigo === pr.numeral).map(x => ({ e: { numeral: pr.numeral, nombre: x.g.nombre, tipo: 'proyecto', programa: pr.codigo }, xs: x.xs }))
+        : [{ e: pr, xs: est.filter(p => p.codigo_estrategico === pr.codigo) }])])
+    .filter(x => x.xs.length).map(({ e, xs }) => ({
     etiqueta: `${e.numeral}  ${corto(e.tipo === 'programa' ? 'Otras acciones del programa: ' + e.nombre : e.nombre)}`,
     titulo: `${e.numeral} ${e.tipo === 'programa' ? '(programa) ' : ''}${e.nombre}`,
     avance: prom(xs.filter(p => p.estado !== 'Cancelada').length ? xs.filter(p => p.estado !== 'Cancelada') : xs),

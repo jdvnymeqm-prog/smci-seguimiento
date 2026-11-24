@@ -88,15 +88,18 @@ function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
 function TablaEstrategicos({ ps, cat, perfil }) {
   const E = cat.estrategicos || [];
   const prom = xs => xs.length ? Math.round(xs.reduce((a, p) => a + Number(p.avance || 0), 0) / xs.length * 10) / 10 : 0;
-  // Filas tal como el reporte mensual del plan de gobierno (nombre y numeral reales, con sus SMCI vinculados)
+  // Los 18 proyectos oficiales del Eje III (23.1 … 28.3), cada uno con los SMCI reportados con ese numeral.
+  // Los SMCI reportados solo con el código del programa (23, 24) van al final de su programa, agrupados
+  // como en el reporte del plan de gobierno («Mochila y material escolar», «Becas y convenios», …), sin numeral inventado.
   const filasG = filasPlanGobierno(cat, ps);
-  const programas = E.filter(e => e.tipo === 'programa').map(pr => ({
-    pr, generales: [],
-    items: filasG.length
-      ? filasG.filter(x => x.programa === pr.numeral).map(x => ({ e: { codigo: x.g.codigo, nombre: x.g.nombre }, xs: x.xs }))
-      : E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
-        .map(e => ({ e, xs: ps.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length),
-  })).filter(x => x.items.length);
+  const programas = E.filter(e => e.tipo === 'programa').map(pr => {
+    const delPrograma = ps.filter(p => p.codigo_estrategico === pr.codigo);
+    const grupos = filasG.filter(x => x.g.codigo === pr.numeral).map(x => ({ e: { codigo: pr.numeral, nombre: x.g.nombre }, xs: x.xs }));
+    const agrupados = new Set(grupos.flatMap(x => x.xs.map(p => p.id)));
+    return { pr, generales: delPrograma.filter(p => !agrupados.has(p.id)),
+      items: [...E.filter(e => e.tipo === 'proyecto' && e.programa === pr.codigo)
+        .map(e => ({ e, xs: ps.filter(p => p.codigo_estrategico === e.codigo) })).filter(x => x.xs.length), ...grupos] };
+  }).filter(x => x.items.length || x.generales.length);
   const smci = xs => xs.filter(p => p.codigo !== p.codigo_estrategico);
   const total = programas.reduce((a, x) => a + x.items.length + x.generales.length, 0);
   return html`<div class="tabla-env"><table class="tabla-est">
