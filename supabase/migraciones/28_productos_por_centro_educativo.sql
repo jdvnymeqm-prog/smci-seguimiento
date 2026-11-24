@@ -13,3 +13,7 @@ alter table public.proyectos add column if not exists meta_productos integer che
 alter table public.tareas
   add column if not exists cantidad integer check (cantidad is null or cantidad >= 0),
   add column if not exists estudiantes integer check (estudiantes is null or estudiantes >= 0);
+
+-- 28c. Juegos de mobiliario por nivel (tareas.niveles jsonb; tareas.cantidad = total de juegos).
+--      calcular_avance cuenta centros educativos DISTINTOS (mismo nombre normalizado = un centro).
+alter table public.tareas add column if not exists niveles jsonb;

@@ -386,8 +386,14 @@ function Tareas({ p, tareas, editable, ctx, listo, fallo }) {
 const TIPOS_CENTRO = [['UE fiscal', 'Unidades educativas fiscales'], ['UE de convenio', 'Unidades educativas de convenio'],
   ['CEE', 'Centros de educación especial'], ['CEA', 'Centros de educación alternativa']];
 
+const NIVELES = ['Inicial', 'Primaria', 'Secundaria', 'Educación especial', 'Educación alternativa'];
+// Mismo criterio que la base: un centro con varias entregas cuenta una sola vez
+const claveCentro = n => (n || '').trim().replace(/\s+/g, ' ').toLowerCase();
+const juegos = t => Number(t.cantidad || 0);
+
 function Entregas({ p, tareas, editable, ctx, listo }) {
   const [form, setForm] = useState(null);          // {} = nueva entrega; tarea = corregir
+  const [vista, setVista] = useState('entregas');  // entregas | centros
   const [pend, setPend] = useState(0);
   useEffect(() => {
     sb.from('propuestas').select('id', { count: 'exact', head: true }).eq('proyecto_id', p.id).eq('tipo', 'crear_tarea').eq('estado', 'pendiente')
@@ -396,40 +402,63 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
   const U = p.universo_productos || {};
   const entregas = tareas.filter(t => t.tipo === 'Producto').sort((a, b) => (b.fecha_fin_original || '').localeCompare(a.fecha_fin_original || ''));
   const hechas = entregas.filter(t => t.estado === 'Concluida');
-  const de = tipo => hechas.filter(t => t.tipo_centro === tipo);
-  const suma = (xs, k) => xs.reduce((a, t) => a + Number(t[k] || 0), 0);
-  const sinTipo = hechas.filter(t => !t.tipo_centro);
-  const nombreTipo = k => (TIPOS_CENTRO.find(x => x[0] === k) || [k, k || '—'])[1];
+  const centrosDe = xs => new Set(xs.map(t => claveCentro(t.nombre))).size;
+  const sumJ = xs => xs.reduce((a, t) => a + juegos(t), 0);
+  const de = tipo => hechas.filter(t => (t.tipo_centro || '') === tipo);
+  const nCentros = centrosDe(hechas);
+  const totJuegos = sumJ(hechas);
+  const porNivel = NIVELES.map(n => [n, hechas.reduce((a, t) => a + Number((t.niveles || {})[n] || 0), 0)]);
+  const sinNivel = totJuegos - porNivel.reduce((a, [, v]) => a + v, 0);
+  const nombreTipo = k => (TIPOS_CENTRO.find(x => x[0] === k) || [k, k || 'Sin tipo'])[1];
+  const centros = Object.values(hechas.reduce((m, t) => {
+    const k = claveCentro(t.nombre);
+    m[k] = m[k] || { nombre: t.nombre, tipo: t.tipo_centro, entregas: 0, juegos: 0, ultima: '' };
+    m[k].entregas++; m[k].juegos += juegos(t); if ((t.fecha_fin_original || '') > m[k].ultima) m[k].ultima = t.fecha_fin_original;
+    return m; }, {})).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  const pct1 = (a, b) => b ? Math.round(1000 * a / b) / 10 : 0;
+  const nivTxt = t => NIVELES.filter(n => (t.niveles || {})[n]).map(n => `${n}: ${t.niveles[n]}`).join(' · ') || '—';
   return html`<div class="panel">
-    <div class="encabezado"><div><h3>Centros educativos atendidos con mobiliario</h3>
-      <p>Cada entrega se registra con el centro educativo, su tipo, la fecha y las cantidades. Avance real = centros atendidos / ${p.meta_productos}.</p></div>
+    <div class="encabezado"><div><h3>Entrega de mobiliario: centros educativos atendidos</h3>
+      <p>Avance automático = centros educativos atendidos (sin repetir) / ${p.meta_productos}. Cada entrega registra el centro, su tipo, la fecha y los juegos de mobiliario por nivel.</p></div>
       <div class="acciones">${editable && html`<button class="prim" onClick=${() => setForm({})}>+ Registrar entrega de mobiliario</button>`}
         <button onClick=${() => exportarExcel('entregas_mobiliario_' + p.codigo, COL_ENTREGAS, entregas, 'Entregas')}>Exportar Excel</button></div></div>
-    ${pend > 0 && html`<${Aviso} tipo="info">${pend} entrega(s) o tarea(s) nuevas esperan validación del jefe de unidad; se sumarán al validarlas.<//>`}
-    <div class="tabla-env"><table><thead><tr><th>Tipo de centro</th><th class="num">Atendidos</th><th class="num">Total</th><th>Avance</th><th class="num">Mobiliario entregado</th><th class="num">Estudiantes</th></tr></thead>
-      <tbody>${TIPOS_CENTRO.map(([k, n]) => html`<tr><td>${n}</td><td class="num">${de(k).length}</td><td class="num">${U[k] ?? '—'}</td>
-          <td style="min-width:120px"><${Barra} v=${U[k] ? Math.round(1000 * de(k).length / U[k]) / 10 : 0} /></td>
-          <td class="num">${suma(de(k), 'cantidad')}</td><td class="num">${suma(de(k), 'estudiantes')}</td></tr>`)}
-        ${sinTipo.length > 0 && html`<tr><td class="ayuda">Sin tipo indicado</td><td class="num">${sinTipo.length}</td><td></td><td></td>
-          <td class="num">${suma(sinTipo, 'cantidad')}</td><td class="num">${suma(sinTipo, 'estudiantes')}</td></tr>`}
-        <tr><td><b>Total</b></td><td class="num"><b>${hechas.length}</b></td><td class="num"><b>${p.meta_productos}</b></td>
-          <td><${Barra} v=${Math.round(1000 * hechas.length / p.meta_productos) / 10} /></td>
-          <td class="num"><b>${suma(hechas, 'cantidad')}</b></td><td class="num"><b>${suma(hechas, 'estudiantes')}</b></td></tr></tbody></table></div>
-    <h3 style="margin-top:1rem">Entregas registradas (${entregas.length})</h3>
-    ${!entregas.length ? html`<div class="vacio">Aún no hay entregas registradas. ${editable ? 'Use «Registrar entrega de mobiliario».' : ''}</div>` : html`
-      <div class="tabla-env"><table><thead><tr><th>Fecha</th><th>Centro educativo</th><th>Tipo</th><th class="num">Mobiliario</th><th class="num">Estudiantes</th><th>Detalle</th><th>Evidencia</th>${editable && html`<th></th>`}</tr></thead>
+    ${pend > 0 && html`<${Aviso} tipo="info">${pend} entrega(s) esperan validación del jefe de unidad; se sumarán al validarlas.<//>`}
+    <div class="rejilla kpis" style="margin-bottom:.8rem">
+      <div class="kpi"><div class="v">${nCentros} / ${p.meta_productos}</div><div class="t">centros atendidos · ${pct1(nCentros, p.meta_productos)} %</div></div>
+      <div class="kpi"><div class="v">${totJuegos}</div><div class="t">juegos de mobiliario entregados</div></div>
+      <div class="kpi"><div class="v">${hechas.length}</div><div class="t">entregas registradas</div></div></div>
+    <div class="tabla-env"><table><thead><tr><th>Tipo de centro educativo</th><th class="num">Atendidos</th><th class="num">Total</th><th>Avance</th><th class="num">Juegos</th></tr></thead>
+      <tbody>${[...TIPOS_CENTRO, ...(de('').length ? [['', 'Sin tipo indicado']] : [])].map(([k, n]) => html`<tr><td>${n}</td>
+          <td class="num">${centrosDe(de(k))}</td><td class="num">${U[k] ?? '—'}</td>
+          <td style="min-width:120px">${U[k] ? html`<${Barra} v=${pct1(centrosDe(de(k)), U[k])} />` : ''}</td><td class="num">${sumJ(de(k))}</td></tr>`)}
+        <tr><td><b>Total</b></td><td class="num"><b>${nCentros}</b></td><td class="num"><b>${p.meta_productos}</b></td>
+          <td><${Barra} v=${pct1(nCentros, p.meta_productos)} /></td><td class="num"><b>${totJuegos}</b></td></tr></tbody></table></div>
+    <div class="tabla-env" style="margin-top:.8rem"><table><thead><tr><th>Juegos de mobiliario por nivel</th><th class="num">Juegos</th><th class="num">% del total</th></tr></thead>
+      <tbody>${porNivel.filter(([, v]) => v > 0).map(([n, v]) => html`<tr><td>${n}</td><td class="num">${v}</td><td class="num">${pct1(v, totJuegos)} %</td></tr>`)}
+        ${sinNivel > 0 && html`<tr><td class="ayuda">Sin nivel indicado</td><td class="num">${sinNivel}</td><td class="num">${pct1(sinNivel, totJuegos)} %</td></tr>`}
+        <tr><td><b>Total</b></td><td class="num"><b>${totJuegos}</b></td><td class="num">${totJuegos ? '100 %' : '—'}</td></tr></tbody></table></div>
+    <div class="tabs" style="margin-top:1rem">
+      <button class=${vista === 'entregas' ? 'activo' : ''} onClick=${() => setVista('entregas')}>Por entrega (${entregas.length})</button>
+      <button class=${vista === 'centros' ? 'activo' : ''} onClick=${() => setVista('centros')}>Por centro educativo (${centros.length})</button></div>
+    ${!entregas.length ? html`<div class="vacio">Aún no hay entregas registradas. ${editable ? 'Use «Registrar entrega de mobiliario».' : ''}</div>`
+      : vista === 'entregas' ? html`
+      <div class="tabla-env"><table><thead><tr><th>Fecha</th><th>Centro educativo</th><th>Tipo</th><th class="num">Juegos</th><th>Por nivel</th><th>Detalle</th><th>Evidencia</th>${editable && html`<th></th>`}</tr></thead>
         <tbody>${entregas.map(t => html`<tr>
           <td class="nowrap">${fecha(t.fecha_fin_original)}</td><td><b>${t.nombre}</b></td><td>${nombreTipo(t.tipo_centro)}</td>
-          <td class="num">${t.cantidad ?? '—'}</td><td class="num">${t.estudiantes ?? '—'}</td>
+          <td class="num"><b>${t.cantidad ?? '—'}</b></td><td class="ayuda">${nivTxt(t)}</td>
           <td class="prewrap">${t.observaciones || '—'}</td><td>${t.evidencia || '—'}</td>
-          ${editable && html`<td><button onClick=${() => setForm(t)}>Corregir</button></td>`}</tr>`)}</tbody></table></div>`}
+          ${editable && html`<td><button onClick=${() => setForm(t)}>Corregir</button></td>`}</tr>`)}</tbody></table></div>`
+      : html`<div class="tabla-env"><table><thead><tr><th>Centro educativo</th><th>Tipo</th><th class="num">Entregas</th><th class="num">Juegos</th><th>Última entrega</th></tr></thead>
+        <tbody>${centros.map(c => html`<tr><td><b>${c.nombre}</b></td><td>${nombreTipo(c.tipo)}</td><td class="num">${c.entregas}</td>
+          <td class="num">${c.juegos}</td><td class="nowrap">${fecha(c.ultima)}</td></tr>`)}</tbody></table></div>`}
     ${form && html`<${FormEntrega} t=${form} p=${p} ctx=${ctx} onCerrar=${() => setForm(null)} onGuardado=${m => { setForm(null); listo(m); }} />`}
   </div>`;
 }
 
 const COL_ENTREGAS = [
   { titulo: 'Fecha de entrega', valor: t => fecha(t.fecha_fin_original) }, { titulo: 'Centro educativo', campo: 'nombre', ancho: 40 },
-  { titulo: 'Tipo de centro', campo: 'tipo_centro' }, { titulo: 'Mobiliario entregado', campo: 'cantidad' },
+  { titulo: 'Tipo de centro', campo: 'tipo_centro' }, { titulo: 'Juegos de mobiliario', campo: 'cantidad' },
+  ...NIVELES.map(n => ({ titulo: 'Juegos · ' + n, valor: t => (t.niveles || {})[n] ?? '' })),
   { titulo: 'Estudiantes beneficiados', campo: 'estudiantes' }, { titulo: 'Detalle', campo: 'observaciones', ancho: 50 },
   { titulo: 'Evidencia', campo: 'evidencia', ancho: 30 }, { titulo: 'Estado', campo: 'estado' },
 ];
@@ -437,17 +466,19 @@ const COL_ENTREGAS = [
 function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
   const nueva = !t.id;
   const [d, setD] = useState({ nombre: t.nombre || '', tipo_centro: t.tipo_centro || '', fecha: t.fecha_fin_original || '',
-    cantidad: t.cantidad ?? '', estudiantes: t.estudiantes ?? '', detalle: t.observaciones || '', evidencia: t.evidencia || '' });
+    niveles: { ...(t.niveles || {}) }, estudiantes: t.estudiantes ?? '', detalle: t.observaciones || '', evidencia: t.evidencia || '' });
   const [err, setErr] = useState('');
   const set = k => e => setD({ ...d, [k]: e.target.value });
-  const num = v => v === '' || v === null ? null : Math.max(0, Math.round(Number(v)));
+  const entero = v => v === '' || v === null || v === undefined ? null : Math.max(0, Math.round(Number(v)));
+  const niv = Object.fromEntries(NIVELES.map(n => [n, entero(d.niveles[n])]).filter(([, v]) => v));
+  const total = Object.values(niv).reduce((a, v) => a + v, 0);
   async function guardar() {
     if (!d.nombre.trim()) return setErr('Escriba el nombre del centro educativo.');
     if (!d.tipo_centro) return setErr('Elija el tipo de centro educativo.');
     if (!d.fecha) return setErr('Indique la fecha de entrega.');
-    if (d.cantidad === '' || Number.isNaN(Number(d.cantidad))) return setErr('Indique la cantidad de mobiliario entregado (número).');
-    const fila = { nombre: d.nombre.trim(), tipo_centro: d.tipo_centro, cantidad: num(d.cantidad), estudiantes: num(d.estudiantes),
-      observaciones: d.detalle.trim() || null, evidencia: d.evidencia.trim() || null };
+    if (!total) return setErr('Indique cuántos juegos de mobiliario se entregaron (al menos en un nivel).');
+    const fila = { nombre: d.nombre.trim().replace(/\s+/g, ' '), tipo_centro: d.tipo_centro, cantidad: total, niveles: niv,
+      estudiantes: entero(d.estudiantes), observaciones: d.detalle.trim() || null, evidencia: d.evidencia.trim() || null };
     const admin = ctx.perfil.rol === 'admin';
     let r;
     if (nueva) {
@@ -456,7 +487,7 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
         : await sb.rpc('proponer', { p_tipo: 'crear_tarea', p_proyecto: p.id, p_registro: null, p_datos: datos, p_motivo: null });
     } else {
       const cambios = {};
-      for (const [k, v] of Object.entries(fila)) if (String(v ?? '') !== String(t[k] ?? '')) cambios[k] = v;
+      for (const [k, v] of Object.entries(fila)) if (JSON.stringify(v ?? null) !== JSON.stringify(t[k] ?? null)) cambios[k] = v;
       if (admin && d.fecha !== t.fecha_fin_original) { cambios.fecha_fin_original = d.fecha; cambios.fecha_fin_vigente = d.fecha; }
       if (!Object.keys(cambios).length) return setErr('No hay cambios que guardar.');
       r = admin ? await sb.from('tareas').update(cambios).eq('id', t.id).select('id').single()
@@ -470,14 +501,19 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
       <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
     <${Aviso} tipo="error">${err}<//>
     <div class="form">
-      <label class="ancho">Centro educativo que recibió el mobiliario<input value=${d.nombre} onInput=${set('nombre')} placeholder="p. ej. U.E. Natalia Palacios" /></label>
-      <label>Tipo de centro<select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Elija…</option>
+      <label class="ancho">Nombre del centro educativo que recibió el mobiliario<input value=${d.nombre} onInput=${set('nombre')} placeholder="p. ej. U.E. Natalia Palacios" />
+        <span class="ayuda">Escríbalo siempre igual: si el mismo centro recibe otra entrega, se suman los juegos pero cuenta una sola vez en los 418.</span></label>
+      <label>Tipo de centro educativo<select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Elija…</option>
         ${TIPOS_CENTRO.map(([k, n]) => html`<option value=${k}>${n}</option>`)}</select></label>
       <label>Fecha de entrega<${FechaInput} valor=${d.fecha} disabled=${!nueva && ctx.perfil.rol !== 'admin'} onCambio=${v => setD(x => ({ ...x, fecha: v }))} />
         ${!nueva && ctx.perfil.rol !== 'admin' && html`<span class="ayuda">La fecha la corrige el administrador.</span>`}</label>
-      <label>Cantidad de mobiliario entregado<input type="number" min="0" step="1" value=${d.cantidad} onInput=${set('cantidad')} placeholder="piezas (mesas + sillas…)" /></label>
-      <label>Estudiantes beneficiados<input type="number" min="0" step="1" value=${d.estudiantes} onInput=${set('estudiantes')} /></label>
-      <label class="ancho">Detalle del mobiliario<textarea value=${d.detalle} onInput=${set('detalle')} placeholder="p. ej. 20 mesas bipersonales y 40 sillas; cursos de 3.º y 4.º de primaria" /></label>
+      <fieldset class="ancho" style="border:1px solid var(--borde,#d6dde1);border-radius:8px;padding:.6rem .8rem">
+        <legend>Juegos de mobiliario entregados por nivel</legend>
+        <div class="form" style="margin:0">${NIVELES.map(n => html`<label>${n}<input type="number" min="0" step="1" value=${d.niveles[n] ?? ''}
+          onInput=${e => setD(x => ({ ...x, niveles: { ...x.niveles, [n]: e.target.value } }))} /></label>`)}</div>
+        <p style="margin:.4rem 0 0"><b>Total de juegos: ${total}</b></p></fieldset>
+      <label>Estudiantes beneficiados (opcional)<input type="number" min="0" step="1" value=${d.estudiantes} onInput=${set('estudiantes')} /></label>
+      <label class="ancho">Detalle (opcional)<textarea value=${d.detalle} onInput=${set('detalle')} placeholder="p. ej. juego = 1 mesa bipersonal + 2 sillas; cursos de 3.º y 4.º" /></label>
       <label class="ancho">Evidencia (acta de entrega, enlace o referencia)<input value=${d.evidencia} onInput=${set('evidencia')} /></label>
     </div>
     ${!nueva && ctx.perfil.rol !== 'admin' && html`<${Aviso} tipo="info">Si la entrega ya fue validada hace menos de 72 horas, la corrección necesita un permiso del administrador.<//>`}

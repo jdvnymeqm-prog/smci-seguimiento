@@ -15,7 +15,7 @@ export const CAMPOS = {
   fecha_entrega_vigente: 'Entrega vigente', fecha_vigente: 'Fecha vigente', situacion_actual: 'Situación actual', proximo_paso: 'Próximo paso',
   observaciones_falta: 'Observaciones (qué falta)', beneficiarios: 'Beneficiarios', presupuesto_programado: 'Presupuesto programado (Bs)',
   presupuesto_ejecutado: 'Presupuesto ejecutado (Bs)', motivo_cancelacion: 'Motivo de cancelación', fecha_fin_original: 'Fin', fecha_fin_vigente: 'Fin vigente',
-  peso: 'Peso', tipo_centro: 'Tipo de centro', cantidad: 'Cantidad entregada', estudiantes: 'Estudiantes beneficiados', evidencia: 'Evidencia', observaciones: 'Observaciones', tipo: 'Tipo', periodo: 'Mes', ficha: 'Ficha', unidad_id: 'Unidad',
+  peso: 'Peso', tipo_centro: 'Tipo de centro', cantidad: 'Juegos de mobiliario', niveles: 'Juegos por nivel', estudiantes: 'Estudiantes beneficiados', evidencia: 'Evidencia', observaciones: 'Observaciones', tipo: 'Tipo', periodo: 'Mes', ficha: 'Ficha', unidad_id: 'Unidad',
   resultado_cuantitativo: 'Resultado cuantitativo', problema_resultado: 'Resultado / problema', linea_base: 'Línea base', medida: 'Medida',
   evidencia_texto: 'Evidencias', url: 'Enlace', storage_path: 'Archivo', apoyos: 'Responsables de apoyo', por_validar: 'Por validar', por_validar_motivo: 'Motivo por validar',
 };
@@ -23,6 +23,7 @@ const OCULTOS = new Set(['fuente']);
 
 function valor(campo, v, cat) {
   if (v === null || v === undefined || v === '') return '—';
+  if (v && typeof v === 'object' && !Array.isArray(v)) return Object.entries(v).map(([k, x]) => `${k}: ${x}`).join(' · ') || '—';
   if (typeof v !== 'string') v = String(v);
   if (campo === 'responsable_id') return (cat.personas.find(p => p.id === v) || {}).nombre || 'Otra persona';
   if (campo === 'unidad_id') return (cat.todasUnidades.find(u => u.id === v) || {}).sigla || v;
