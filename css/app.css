@@ -196,3 +196,5 @@ tr.sub td { font-size: .9rem; }
 .leyenda-dir { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .82rem; color: var(--suave); margin: -.25rem 0 .75rem; }
 .leyenda-dir span { display: inline-flex; align-items: center; gap: .35rem; }
 .leyenda-dir i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+
+select.falta { border: 1px dashed var(--amarillo, #c58b00); background: #fffbea; font-size: .82rem; padding: .2rem .3rem; max-width: 190px; }
