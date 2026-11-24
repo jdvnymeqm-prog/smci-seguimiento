@@ -206,4 +206,7 @@ function Raiz() {
   return html`<${Aplicacion} sesion=${sesion} key=${sesion.user.id} />`;
 }
 
-render(html`<${Raiz} />`, document.getElementById('app'));
+// La pantalla de ingreso deja un «Cargando…» provisional: se quita antes de mostrar la aplicación
+const raiz = document.getElementById('app');
+raiz.textContent = '';
+render(html`<${Raiz} />`, raiz);
