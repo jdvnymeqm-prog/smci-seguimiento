@@ -17,3 +17,7 @@ alter table public.tareas
 -- 28c. Juegos de mobiliario por nivel (tareas.niveles jsonb; tareas.cantidad = total de juegos).
 --      calcular_avance cuenta centros educativos DISTINTOS (mismo nombre normalizado = un centro).
 alter table public.tareas add column if not exists niveles jsonb;
+
+-- 28d. tareas.centros: N.º de unidades educativas atendidas en la entrega (por defecto 1; Hampaturi = 11).
+--      calcular_avance: suma, por unidad educativa distinta, su mayor N.º de U.E. / meta (418).
+alter table public.tareas add column if not exists centros integer check (centros is null or centros > 0);

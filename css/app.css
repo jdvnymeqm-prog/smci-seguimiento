@@ -197,4 +197,7 @@ tr.sub td { font-size: .9rem; }
 .leyenda-dir span { display: inline-flex; align-items: center; gap: .35rem; }
 .leyenda-dir i { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
 
-select.falta { border: 1px dashed var(--amarillo, #c58b00); background: #fffbea; font-size: .82rem; padding: .2rem .3rem; max-width: 190px; }
+select.falta, input.falta { border: 1px dashed var(--amarillo, #c58b00); background: #fffbea; font-size: .82rem; padding: .2rem .3rem; max-width: 190px; }
+.falta-caja { display: inline-flex; gap: .25rem; align-items: center; }
+input.falta { width: 110px; }
+button.mini { padding: .15rem .45rem; font-size: .78rem; }
