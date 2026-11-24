@@ -269,6 +269,8 @@ function Estructura({ ctx }) {
   const { cat, recargar } = ctx;
   const [edit, setEdit] = useState(null);
   const [msg, setMsg] = useState({});
+  const [valida, setValida] = useState({});   // unidad → 'jefe' | 'director' (según cuentas activas)
+  useEffect(() => { sb.rpc('validador_por_unidad').then(({ data }) => setValida(Object.fromEntries((data || []).map(x => [x.unidad_id, x.valida])))); }, [cat]);
   async function guardar(tabla, d) {
     const fila = tabla === 'direcciones'
       ? { sigla: d.sigla, nombre: d.nombre, titular: d.titular || null, activa: d.activa !== false, orden: Number(d.orden || 0), es_despacho_secretaria: !!d.es_despacho_secretaria }
@@ -286,13 +288,14 @@ function Estructura({ ctx }) {
     <p class="ayuda">Desactivar una dirección o unidad la oculta de los selectores sin borrar sus proyectos ni su historial.</p>
     <div class="acciones" style="margin-bottom:1rem"><button onClick=${() => setEdit({ tabla: 'direcciones', d: { activa: true } })}>+ Nueva dirección</button>
       <button onClick=${() => setEdit({ tabla: 'unidades', d: { activa: true, tiene_jefe: null } })}>+ Nueva unidad</button></div>
-    <p class="ayuda">Si una unidad no cuenta con jefe, los cambios que proponga los valida el director de su dirección. El «Personal de la Dirección» de cada dirección (y el «Personal del Despacho» de la Secretaría) es una unidad sin jefe: su avance lo valida el director de esa dirección. El personal del Despacho de la Secretaría lo revisa y valida el Encargado de Planificación (administrador), que además puede validar todo.</p>
+    <p class="ayuda">Si una unidad no cuenta con jefe, los cambios que proponga los valida el director de su dirección. El «Personal de la Dirección» de cada dirección (y el «Personal del Despacho» de la Secretaría) es una unidad sin jefe: su avance lo valida el director de esa dirección. Si una unidad con jefe no tiene un usuario «Jefe/a de unidad» activo en la aplicación (aún no creado, desactivado o eliminado), sus cambios los valida automáticamente el director. El personal del Despacho de la Secretaría lo revisa y valida el Encargado de Planificación (administrador), que además puede validar todo.</p>
     ${D.map(d => html`<div class="panel" style="background:#fbfcfc">
       <div class="encabezado"><div><h3>${d.sigla} · ${d.nombre} ${d.es_despacho_secretaria ? html`<span class="pill">Despacho de la Secretaría</span>` : ''} ${!d.activa ? html`<span class="etiqueta">Inactiva</span>` : ''}</h3><p>Titular: ${d.titular || '—'}</p></div>
         <button onClick=${() => setEdit({ tabla: 'direcciones', d })}>Editar</button></div>
       <div class="tabla-env"><table><thead><tr><th>Sigla</th><th>Unidad</th><th>Jefe/a</th><th>Antes</th><th>Activa</th><th></th></tr></thead>
         <tbody>${U.filter(u => u.direccion_id === d.id).map(u => html`<tr><td><b>${u.sigla}</b></td><td>${u.nombre}<br/><span class="ayuda">${u.descripcion || ''}</span></td>
-          <td>${u.tiene_jefe === false ? html`<span class="etiqueta">Sin jefe</span><br/><span class="ayuda">Valida el director</span>` : (u.jefe || '—')}</td><td>${u.nombre_anterior || '—'}</td><td>${u.activa ? 'Sí' : 'No'}</td>
+          <td>${u.tiene_jefe === false ? html`<span class="etiqueta">Sin jefe</span><br/><span class="ayuda">Valida el director</span>`
+            : html`${u.jefe || '—'}${valida[u.id] === 'director' ? html`<br/><span class="etiqueta" title="Ningún usuario con rol «Jefe/a de unidad» activo en esta unidad">Jefe sin cuenta</span> <span class="ayuda">valida el director</span>` : valida[u.id] === 'jefe' ? html`<br/><span class="ayuda">Valida su jefe</span>` : ''}`}</td><td>${u.nombre_anterior || '—'}</td><td>${u.activa ? 'Sí' : 'No'}</td>
           <td><button onClick=${() => setEdit({ tabla: 'unidades', d: u })}>Editar</button></td></tr>`)}</tbody></table></div></div>`)}
     ${edit && html`<${EditarEstructura} e=${edit} D=${D} onCerrar=${() => setEdit(null)} onGuardar=${d => guardar(edit.tabla, d)} />`}
   </div>`;

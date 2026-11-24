@@ -1,7 +1,7 @@
 // Propuestas de cambio: las unidades proponen, el jefe de unidad valida (se aplica) o rechaza.
 // Lo validado queda cerrado; nueva información sobre el mismo dato después de 72 h,
 // o antes con un permiso de corrección del administrador.
-import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, puedeValidar, bloqueoCambios, usePestana, codigoPrincipal, codigoTexto } from '../lib.js';
+import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, bloqueoCambios, usePestana, codigoPrincipal, codigoTexto } from '../lib.js';
 import { Aviso, Modal } from '../componentes.js';
 
 export const TIPOS = {
@@ -50,7 +50,10 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   const [texto, setTexto] = useState('');
   const [msg, setMsg] = useState({});
   const esAdmin = perfil.rol === 'admin';
-  const puedeRevisar = m => !bloqueoCambios(cat, perfil) && puedeValidar(perfil, cat.todasUnidades.find(u => u.id === m.unidad_id));
+  // Qué unidades valida este usuario: lo decide la base (jefe con cuenta activa o, si no hay, el director)
+  const [valido, setValido] = useState(null);
+  useEffect(() => { sb.rpc('unidades_que_valido').then(({ data }) => setValido(new Set((data || []).map(x => x.unidades_que_valido || x)))); }, []);
+  const puedeRevisar = m => !bloqueoCambios(cat, perfil) && (esAdmin || !!valido?.has(m.unidad_id));
 
   const cargar = () => {
     let q = sb.from('propuestas').select('*, proyectos(codigo,codigo_estrategico,nombre)').eq('estado', vista);
@@ -115,11 +118,13 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
 
 export function Validaciones({ ctx }) {
   const { perfil, cat } = ctx;
-  const sinJefe = cat.unidades.filter(u => u.tiene_jefe === false);
+  const [mias, setMias] = useState([]);
+  useEffect(() => { if (perfil.rol === 'director') sb.rpc('unidades_que_valido').then(({ data }) => setMias((data || []).map(x => x.unidades_que_valido || x))); }, []);
+  const sinJefe = cat.unidades.filter(u => mias.includes(u.id));
   return html`
     <div class="encabezado"><div><h1>Validaciones</h1>
       <p>${perfil.rol === 'admin' ? 'Todas las direcciones, unidades y el personal del Despacho de la Secretaría: como Encargado de Planificación usted revisa y valida todo.' : perfil.rol === 'director'
-        ? (sinJefe.length ? `Usted valida los cambios de las unidades sin jefe: ${sinJefe.map(u => u.sigla).join(', ')}. Las demás unidades las valida su jefe.` : 'Todas las unidades de su dirección tienen jefe: ellos validan. Aquí puede consultar las propuestas.')
+        ? (sinJefe.length ? `Usted valida los cambios de: ${sinJefe.map(u => u.sigla).join(', ')} (personal de la dirección y unidades sin jefe con cuenta activa). Las demás unidades las valida su jefe.` : 'Todas las unidades de su dirección tienen jefe: ellos validan. Aquí puede consultar las propuestas.')
         : 'Cambios propuestos en su unidad.'} Ningún cambio de una unidad se aplica hasta que su jefe (o el director, si la unidad no tiene jefe) lo valida. Lo validado queda cerrado: nueva información sobre el mismo dato se puede proponer pasadas 72 horas, o antes con permiso del administrador.</p></div></div>
     <${ListaPropuestas} ctx=${ctx} />`;
 }
