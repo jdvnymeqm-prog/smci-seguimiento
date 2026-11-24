@@ -351,6 +351,7 @@ function Tareas({ p, tareas: todas, editable, ctx, listo, fallo }) {
   const [edit, setEdit] = useState(null);
   // En el proyecto de mobiliario los productos (entregas) van en su propia tabla; aquí quedan las demás tareas
   const tareas = p.meta_productos ? todas.filter(t => t.tipo !== 'Producto') : todas;
+  const [entregaNueva, setEntregaNueva] = useState(false);
   const pesoTotal = tareas.filter(t => t.estado !== 'Cancelada').reduce((a, t) => a + Number(t.peso), 0);
   async function borrar(t) {
     if (!confirm(`¿Eliminar la tarea «${t.nombre}»? Queda registrado en la bitácora.`)) return;
@@ -362,7 +363,7 @@ function Tareas({ p, tareas: todas, editable, ctx, listo, fallo }) {
     <div class="panel"><h3>Línea de tiempo</h3><${Gantt} tareas=${tareas} p=${p} /></div>
     <div class="panel">
       <div class="encabezado"><div><h3>${p.meta_productos ? 'Otras tareas' : 'Tareas'}</h3><p>Peso total ${pesoTotal}. El avance del proyecto es Σ(peso × avance) / Σ peso.</p></div>
-        <div class="acciones">${editable && html`<button class="prim" onClick=${() => setEdit({})}>+ Nueva tarea</button>`}
+        <div class="acciones">${editable && html`<button class="prim" onClick=${() => p.meta_productos ? setEntregaNueva(true) : setEdit({})}>+ Nueva tarea</button>`}
           <button onClick=${() => exportarExcel('tareas_' + p.codigo, COL_TAREAS, tareas, 'Tareas')}>Exportar Excel</button></div></div>
       <div class="tabla-env"><table>
         <thead><tr><th>Tarea</th><th>Responsable</th><th>Inicio</th><th>Fin original</th><th>Fin vigente</th><th class="num">Peso</th><th>Avance</th><th>Estado</th><th>Evidencia</th>${editable && html`<th></th>`}</tr></thead>
@@ -384,7 +385,8 @@ function Tareas({ p, tareas: todas, editable, ctx, listo, fallo }) {
         </tr>`)}</tbody></table>
         ${!tareas.length && html`<div class="vacio">Sin tareas. ${editable ? 'Agregue la primera.' : ''}</div>`}</div>
     </div>
-    ${edit && html`<${EditarTarea} t=${edit} p=${p} ctx=${ctx} onCerrar=${() => setEdit(null)} onGuardado=${m => { setEdit(null); listo(m); }} />`}`;
+    ${edit && html`<${EditarTarea} t=${edit} p=${p} ctx=${ctx} onCerrar=${() => setEdit(null)} onGuardado=${m => { setEdit(null); listo(m); }} />`}
+    ${entregaNueva && html`<${FormEntrega} t=${{}} p=${p} ctx=${ctx} onCerrar=${() => setEntregaNueva(false)} onGuardado=${m => { setEntregaNueva(false); listo(m); }} />`}`;
 }
 
 // ---------------------------------------------------------------------
@@ -468,10 +470,10 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
   return html`<div class="panel">
     <div class="encabezado"><div><h3>Productos: entregas de mobiliario</h3>
       <p>Cada fila es una entrega: unidad educativa y juegos de mobiliario por nivel. Las casillas vacías quedan libres para llenar el dato que falta.</p></div>
-      <div class="acciones">${editable && html`<button class="prim" onClick=${() => setForm({})}>+ Registrar entrega de mobiliario</button>`}
+      <div class="acciones">${editable && html`<button class="prim" onClick=${() => setForm({})}>+ Agregar tarea (entrega de mobiliario)</button>`}
         <button onClick=${() => exportarExcel('entregas_mobiliario_' + p.codigo, COL_ENTREGAS, entregas.map(t => ({ ...t, ue: nUE(t), por_asignar: porAsignar(t) || '' })), 'Entregas')}>Exportar Excel</button></div></div>
     ${pend > 0 && html`<${Aviso} tipo="info">${pend} registro(s) esperan validación del jefe de unidad; se sumarán al validarlos.<//>`}
-    ${!entregas.length ? html`<div class="vacio">Aún no hay entregas registradas. ${editable ? 'Use «Registrar entrega de mobiliario».' : ''}</div>` : html`
+    ${!entregas.length && !editable ? html`<div class="vacio">Aún no hay entregas registradas.</div>` : html`
     <div class="tabla-env"><table class="tabla-productos">
       <thead><tr><th rowspan="2">N.º</th><th rowspan="2">Fecha</th><th rowspan="2">Unidad educativa</th><th rowspan="2">Categoría</th><th rowspan="2" class="num">N.º de U.E.</th>
           <th colspan="3" class="centro">Juegos de mobiliario por nivel</th><th rowspan="2" class="num">Total juegos</th><th rowspan="2">Evidencia</th>${editable && html`<th rowspan="2"></th>`}</tr>
@@ -485,7 +487,8 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
           ${NIVELES.map(n => html`<td class="num">${c(t, 'nivel:' + n, nivel(t, n), { tipo: 'number' })}</td>`)}
           <td class="num"><b>${juegos(t) || ''}</b>${porAsignar(t) > 0 && html`<div class="ayuda" title="Juegos registrados sin nivel: anótelos en Inicial, Primaria o Secundaria">${porAsignar(t)} sin nivel</div>`}</td>
           <td class="ayuda">${c(t, 'evidencia', t.evidencia, { tipo: 'text' })}</td>
-          ${editable && html`<td><button onClick=${() => setForm(t)}>Corregir</button></td>`}</tr>`)}</tbody>
+          ${editable && html`<td><button onClick=${() => setForm(t)}>Corregir</button></td>`}</tr>`)}
+        ${editable && html`<${FilaNueva} p=${p} ctx=${ctx} listo=${listo} n=${entregas.length + 1} />`}</tbody>
       <tfoot><tr class="total"><td colspan="5"><b>Total juegos de mobiliario por nivel</b></td>
           ${NIVELES.map(n => html`<td class="num"><b>${totNivel(n)}</b></td>`)}
           <td class="num"><b>${totJuegos}</b>${totPorAsignar > 0 && html`<div class="ayuda">${totPorAsignar} sin nivel</div>`}</td><td colspan=${editable ? 2 : 1}></td></tr>
@@ -494,6 +497,51 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
     </table></div>`}
     ${form && html`<${FormEntrega} t=${form} p=${p} ctx=${ctx} onCerrar=${() => setForm(null)} onGuardado=${m => { setForm(null); listo(m); }} />`}
   </div>`;
+}
+
+// Guarda una entrega nueva (producto). Administrador: directo; demás: va a validación del jefe de unidad.
+async function guardarEntregaNueva(p, ctx, fila, fechaEntrega) {
+  const datos = { ...fila, tipo: 'Producto', fecha_fin_original: fechaEntrega, peso: 1, avance: 100, estado: 'Concluida' };
+  return ctx.perfil.rol === 'admin'
+    ? sb.from('tareas').insert({ ...datos, proyecto_id: p.id, fecha_fin_vigente: fechaEntrega }).select('id').single()
+    : sb.rpc('proponer', { p_tipo: 'crear_tarea', p_proyecto: p.id, p_registro: null, p_datos: datos, p_motivo: null });
+}
+
+// Última fila de la tabla: nueva tarea (entrega) con la misma estructura, para llenar directamente
+function FilaNueva({ p, ctx, listo, n }) {
+  const vacia = { fecha: '', nombre: '', tipo_centro: '', centros: 1, Inicial: '', Primaria: '', Secundaria: '', evidencia: '' };
+  const [d, setD] = useState(vacia);
+  const [err, setErr] = useState('');
+  const [ocupado, setOcupado] = useState(false);
+  const set = k => e => setD({ ...d, [k]: e.target.value });
+  const ent = v => v === '' || v === null ? 0 : Math.max(0, Math.round(Number(v)));
+  const total = NIVELES.reduce((a, k) => a + ent(d[k]), 0);
+  async function agregar() {
+    setErr('');
+    if (!d.fecha) return setErr('Falta la fecha de entrega.');
+    if (!d.nombre.trim()) return setErr('Falta el nombre de la unidad educativa.');
+    if (!d.tipo_centro) return setErr('Elija la categoría de la unidad educativa.');
+    if (!total) return setErr('Anote la cantidad de juegos en Inicial, Primaria o Secundaria.');
+    const niveles = Object.fromEntries(NIVELES.map(k => [k, ent(d[k])]).filter(([, v]) => v));
+    setOcupado(true);
+    const r = await guardarEntregaNueva(p, ctx, { nombre: d.nombre.trim().replace(/\s+/g, ' '), tipo_centro: d.tipo_centro,
+      centros: ent(d.centros) || 1, cantidad: total, niveles, evidencia: d.evidencia.trim() || null }, d.fecha);
+    setOcupado(false);
+    if (r.error) return setErr(mensajeError(r.error));
+    setD(vacia);
+    listo(ctx.perfil.rol === 'admin' ? 'Tarea (entrega) agregada: los totales y el avance ya se actualizaron.' : 'Tarea (entrega) enviada a validación: se sumará a los totales cuando la valide su jefe de unidad.');
+  }
+  return html`<tr class="fila-nueva">
+    <td><b>${n}</b></td>
+    <td><${FechaInput} valor=${d.fecha} onCambio=${v => setD(x => ({ ...x, fecha: v }))} /></td>
+    <td><input value=${d.nombre} onInput=${set('nombre')} placeholder="Nombre de la unidad educativa" /></td>
+    <td><select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Categoría…</option>${TIPOS_CENTRO.map(([k, x]) => html`<option value=${k}>${x}</option>`)}</select></td>
+    <td class="num"><input class="corto" type="number" min="1" step="1" value=${d.centros} onInput=${set('centros')} title="N.º de unidades educativas atendidas en esta entrega" /></td>
+    ${NIVELES.map(k => html`<td class="num"><input class="corto" type="number" min="0" step="1" value=${d[k]} onInput=${set(k)} placeholder="0" /></td>`)}
+    <td class="num"><b>${total || ''}</b></td>
+    <td><input value=${d.evidencia} onInput=${set('evidencia')} placeholder="Acta / enlace" /></td>
+    <td><button class="prim" disabled=${ocupado} onClick=${agregar}>${ocupado ? 'Guardando…' : '+ Agregar'}</button>
+      ${err && html`<div class="ayuda" style="color:var(--rojo);max-width:160px">${err}</div>`}</td></tr>`;
 }
 
 // Celda de la tabla de productos: muestra el dato; si falta y se puede editar, deja la casilla libre para llenarlo
@@ -563,9 +611,7 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
     const admin = ctx.perfil.rol === 'admin';
     let r;
     if (nueva) {
-      const datos = { ...fila, tipo: 'Producto', fecha_fin_original: d.fecha, peso: 1, avance: 100, estado: 'Concluida' };
-      r = admin ? await sb.from('tareas').insert({ ...datos, proyecto_id: p.id, fecha_fin_vigente: d.fecha }).select('id').single()
-        : await sb.rpc('proponer', { p_tipo: 'crear_tarea', p_proyecto: p.id, p_registro: null, p_datos: datos, p_motivo: null });
+      r = await guardarEntregaNueva(p, ctx, fila, d.fecha);
     } else {
       const cambios = {};
       for (const [k, v] of Object.entries(fila)) if (JSON.stringify(v ?? null) !== JSON.stringify(t[k] ?? null)) cambios[k] = v;
@@ -578,7 +624,7 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
     onGuardado(admin ? (nueva ? 'Entrega registrada.' : 'Entrega corregida.')
       : (nueva ? 'Entrega enviada a validación: se sumará a los centros atendidos cuando la valide su jefe de unidad.' : 'Corrección enviada a validación.'));
   }
-  return html`<${Modal} titulo=${nueva ? 'Registrar entrega de mobiliario' : 'Corregir entrega · ' + t.nombre} onCerrar=${onCerrar} acciones=${html`
+  return html`<${Modal} titulo=${nueva ? 'Nueva tarea: entrega de mobiliario' : 'Corregir entrega · ' + t.nombre} onCerrar=${onCerrar} acciones=${html`
       <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
     <${Aviso} tipo="error">${err}<//>
     <div class="form">
