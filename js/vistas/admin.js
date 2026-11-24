@@ -69,7 +69,7 @@ function EditarUsuario({ u, cat, yo, onCerrar, onListo }) {
   const [d, setD] = useState({ ...u });
   const [clave, setClave] = useState('');
   const [err, setErr] = useState('');
-  const set = k => e => setD({ ...d, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const set = k => e => { const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value; setD(x => ({ ...x, [k]: v })); };
   const unidades = cat.unidades.filter(x => !d.direccion_id || x.direccion_id === d.direccion_id);
   async function guardar() {
     setErr('');
