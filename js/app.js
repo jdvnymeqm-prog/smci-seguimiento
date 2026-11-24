@@ -96,7 +96,7 @@ function Aplicacion({ sesion }) {
   const [menu, setMenu] = useState(false);
 
   async function cargarCatalogos() {
-    const [p, d, u, pe, c, es, ve, pg] = await Promise.all([
+    const [p, d, u, pe, c, es, ve] = await Promise.all([
       sb.from('perfiles').select('*').eq('id', sesion.user.id).single(),
       sb.from('direcciones').select('*').order('orden'),
       sb.from('unidades').select('*').order('orden'),
@@ -104,7 +104,6 @@ function Aplicacion({ sesion }) {
       sb.from('config').select('*'),
       sb.from('estrategicos').select('*').order('orden'),
       sb.rpc('unidades_que_veo'),
-      sb.from('proyectos_gobierno').select('codigo,nombre,direccion,estado_origen,proyectos_vinculados').order('codigo').order('nombre'),
     ]);
     const e = p.error || d.error || u.error || pe.error || c.error || es.error;
     if (e) { setErr(mensajeError(e)); return; }
@@ -118,7 +117,7 @@ function Aplicacion({ sesion }) {
     setPerfil({ ...p.data, edicion_abierta: !!miDir?.edicion_abierta });
     setCat({
       direcciones: d.data, unidades: u.data, personas: pe.data, config, estrategicos: es.data,
-      todasDirecciones: d.data, todasUnidades: u.data, proyectosGobierno: pg.error ? [] : (pg.data || []),
+      todasDirecciones: d.data, todasUnidades: u.data,
       // Unidades que la base permite ver (si falla, solo la propia)
       unidadesVisibles: new Set(ve.error ? [p.data.unidad_id] : (ve.data || []).map(x => x.unidades_que_veo || x)),
     });
