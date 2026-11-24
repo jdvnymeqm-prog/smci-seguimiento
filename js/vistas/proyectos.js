@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir, filasPlanGobierno } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
+import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, CodigoContinuidad, LeyendaDirecciones } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
 export function ListaProyectos({ ctx, modo = 'otros' }) {
@@ -69,7 +69,7 @@ function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
   const c = colorDir(p.direccion_sigla);
   return html`<tr class=${'clic' + (sub ? ' sub' : '')} onClick=${() => location.hash = '#/proyecto/' + p.id}>
     <td class="nowrap" style=${'border-left:5px solid ' + c.fuerte}>${celdaCodigo || html`<${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
-    <td>${celdaNombre || p.nombre}${p.codigos_continuidad ? html`<br/><span class="pill" title="Proyecto al que se dio continuidad: reúne estos códigos">↻ Continuidad: ${p.codigos_continuidad}</span>` : ''}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
+    <td>${celdaNombre || p.nombre}${p.codigos_continuidad ? html` <span class="ayuda" title=${'Reúne: ' + p.codigos_continuidad}>↻ proyecto con continuidad</span>` : ''}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
       ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}
       <br/><span class="pill" style=${'background:' + c.suave + ';color:' + c.fuerte + ';border:1px solid ' + c.fuerte}>${p.direccion_sigla}${p.unidad_sigla ? ' · ' + p.unidad_sigla : ' · sin unidad'}</span></td>
     <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
@@ -108,10 +108,12 @@ function TablaEstrategicos({ ps, cat, perfil }) {
     <tbody>${programas.map(x => html`
       <tr class="grupo-prog"><td colspan="10">${x.pr.codigo} · ${x.pr.numeral}. ${x.pr.nombre} <span class="pill">${x.items.length + x.generales.length} ${x.items.length + x.generales.length === 1 ? 'proyecto' : 'proyectos'}</span></td></tr>
       ${x.generales.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil}
-        celdaCodigo=${html`<span class="cod-est">${x.pr.numeral}</span><span class="cod-smci">${p.codigo}</span>`} />`)}
+        celdaCodigo=${p.codigos_continuidad ? html`<${CodigoContinuidad} p=${p} previo=${html`<span class="cod-est">${x.pr.numeral}</span><br/>`} />` : html`<span class="cod-est">${x.pr.numeral}</span><span class="cod-smci">${p.codigo}</span>`} />`)}
       ${x.items.map(({ e, xs }) => {
         const codigos = smci(xs);
-        const celdaCodigo = html`<span class="cod-est">${e.codigo}</span>${codigos.map(p => html`<span class="cod-smci">${p.codigo}</span>`)}`;
+        const celdaCodigo = xs.length === 1 && xs[0].codigos_continuidad
+          ? html`<${CodigoContinuidad} p=${xs[0]} previo=${html`<span class="cod-est">${e.codigo}</span><br/>`} />`
+          : html`<span class="cod-est">${e.codigo}</span>${codigos.map(p => html`<span class="cod-smci">${p.codigo}</span>`)}`;
         if (xs.length === 1) {
           const p = xs[0];
           return html`<${FilaProyecto} p=${p} perfil=${perfil} celdaCodigo=${celdaCodigo}
@@ -124,7 +126,7 @@ function TablaEstrategicos({ ps, cat, perfil }) {
             <td style="min-width:120px"><${Barra} v=${prom(xs)} /><span class="ayuda">promedio</span></td>
             <td colspan="5"></td></tr>
           ${xs.map(p => html`<${FilaProyecto} p=${p} perfil=${perfil} sub=${true}
-            celdaCodigo=${html`<span class="cod-smci">↳ ${p.codigo}</span>`} />`)}`;
+            celdaCodigo=${p.codigos_continuidad ? html`<${CodigoContinuidad} p=${p} previo="↳ " />` : html`<span class="cod-smci">↳ ${p.codigo}</span>`} />`)}`;
       })}`)}
     </tbody></table>
     ${!total && html`<div class="vacio">No hay proyectos dentro del plan de gobierno con estos filtros.</div>`}</div>`;

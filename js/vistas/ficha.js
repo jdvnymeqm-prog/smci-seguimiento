@@ -53,11 +53,12 @@ export function Ficha({ ctx, id }) {
           <div class="acciones" style="margin-bottom:.3rem"><span class="pill" style=${'background:' + colorDir(p.direccion_sigla).fuerte + ';color:#fff'}>${p.direccion_sigla}${p.unidad_sigla ? ' · ' + p.unidad_sigla : ''}</span>${p.codigo_estrategico
               ? html`<span class="pill" style="background:#18465c;color:#fff" title=${'Proyecto estratégico Eje III · ' + (p.estrategico_nombre || '')}>${codigoPrincipal(p)}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="pill">${p.codigo}</span>` : ''}`
               : html`<span class="pill">${p.codigo}</span>`}
+            ${p.codigos_continuidad && html`<span class="pill" style="background:#fff;font-size:.72rem" title="Códigos que se unieron a este proyecto">también: ${p.codigos_continuidad}</span>`}
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
             <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />
             ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>`}</div>
           <h1>${p.nombre}</h1>
-          ${p.codigos_continuidad && html`<p class="ayuda" style="margin:.2rem 0 .4rem">↻ <b>Proyecto al que se dio continuidad.</b> Reúne los códigos: ${p.codigos_continuidad}. Las tareas, evidencias y reportes muestran entre corchetes el código con el que se registraron.</p>`}
+          ${p.codigos_continuidad && html`<p class="ayuda" style="margin:.2rem 0 .4rem">↻ <b>Proyecto al que se dio continuidad.</b> Código inicial: <b>${p.codigo}</b>. Se le unieron: ${p.codigos_continuidad}. Las tareas, evidencias y reportes muestran entre corchetes el código con el que se registraron.</p>`}
           <div class="meta">
             <span>${p.direccion_sigla} · ${p.unidad_sigla || 'Unidad por validar'}</span>
             <span>Responsable: <b>${p.responsable_nombre || 'Sin responsable'}</b>${p.apoyos_nombres ? ' · Apoyo: ' + p.apoyos_nombres : ''}</span>

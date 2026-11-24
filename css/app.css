@@ -178,6 +178,9 @@ td.nowrap { white-space: nowrap; }
 .btn-atras { font-weight: 600; }
 /* Código estratégico arriba, código SMCI debajo */
 .cod-est { font-weight: 700; color: var(--primario, #18465c); white-space: nowrap; }
+.cod-inicial { font-weight: 700; white-space: nowrap; }
+.cod-unidos { display: block; font-size: .7rem; color: var(--suave); line-height: 1.25; margin-top: .1rem; }
+.cod-unidos span { display: block; white-space: nowrap; }
 .cod-smci { display: block; font-size: .78rem; color: var(--suave); margin-top: .1rem; white-space: nowrap; }
 tr.grupo-prog td { background: #18465c; color: #fff; font-weight: 700; }
 tr.grupo-est td { background: #e8f0f3; font-weight: 600; }
