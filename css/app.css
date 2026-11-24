@@ -201,3 +201,6 @@ select.falta, input.falta { border: 1px dashed var(--amarillo, #c58b00); backgro
 .falta-caja { display: inline-flex; gap: .25rem; align-items: center; }
 input.falta { width: 110px; }
 button.mini { padding: .15rem .45rem; font-size: .78rem; }
+.tabla-productos th.centro { text-align: center; }
+.tabla-productos tfoot tr.total td { background: #f3f6f8; border-top: 2px solid var(--borde); }
+input.falta.corto { width: 64px; }
