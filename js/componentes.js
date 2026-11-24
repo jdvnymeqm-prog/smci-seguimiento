@@ -5,8 +5,12 @@ export const LeyendaDirecciones = ({ cat }) => html`<div class="leyenda-dir">${(
   const c = colorDir(d.sigla);
   return html`<span><i style=${'background:' + c.fuerte}></i>${d.sigla}</span>`; })}</div>`;
 
+// Proyecto con continuidad: el código SMCI inicial en grande y, debajo en letra pequeña, los códigos que se le unieron
+export const CodigoContinuidad = ({ p, previo }) => html`${previo || ''}<b class="cod-inicial">${p.codigo}</b>
+  <span class="cod-unidos" title="Códigos que se unieron a este proyecto (continuidad)">${(p.codigos_continuidad || '').split(',').map(c => c.trim()).filter(Boolean).map(c => html`<span>${c}</span>`)}</span>`;
+
 // Código del proyecto: numeral estratégico arriba y código SMCI debajo
-export const Codigo = ({ p }) => p.codigo_estrategico
+export const Codigo = ({ p }) => p.codigos_continuidad ? html`<${CodigoContinuidad} p=${p} />` : p.codigo_estrategico
   ? html`<span class="cod-est">${codigoPrincipal(p)}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`
   : html`<b>${p.codigo}</b>`;
 
