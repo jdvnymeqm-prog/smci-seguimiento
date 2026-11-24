@@ -21,3 +21,9 @@ alter table public.tareas add column if not exists niveles jsonb;
 -- 28d. tareas.centros: N.º de unidades educativas atendidas en la entrega (por defecto 1; Hampaturi = 11).
 --      calcular_avance: suma, por unidad educativa distinta, su mayor N.º de U.E. / meta (418).
 alter table public.tareas add column if not exists centros integer check (centros is null or centros > 0);
+
+-- 28e. Revisión 24/11/2026: la vista v_proyectos no tenía meta_productos ni universo_productos (el cambio se
+--      había revertido junto con una prueba). Se agregaron al final de sus columnas. Además, las funciones
+--      direccion_edicion_abierta y es_director_de dejan de poder llamarse sin iniciar sesión (solo authenticated).
+revoke execute on function public.direccion_edicion_abierta(uuid) from anon, public;
+revoke execute on function public.es_director_de(uuid) from anon, public;

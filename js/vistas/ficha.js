@@ -180,7 +180,7 @@ function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
   const [ocupado, setOcupado] = useState(false);
   useEffect(() => { setD({ ...p }); setAp(apoyos); }, [p, apoyos]);
   if (!d) return null;
-  const set = k => e => setD({ ...d, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+  const set = k => e => { const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value; setD(x => ({ ...x, [k]: v })); };
   const unidad = cat.unidades.find(u => u.id === d.unidad_id);
   const personas = cat.personas;
   const nom = id => (personas.find(x => x.id === id) || {}).nombre;
@@ -513,7 +513,7 @@ function FilaNueva({ p, ctx, listo, n }) {
   const [d, setD] = useState(vacia);
   const [err, setErr] = useState('');
   const [ocupado, setOcupado] = useState(false);
-  const set = k => e => setD({ ...d, [k]: e.target.value });
+  const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
   const ent = v => v === '' || v === null ? 0 : Math.max(0, Math.round(Number(v)));
   const total = NIVELES.reduce((a, k) => a + ent(d[k]), 0);
   async function agregar() {
@@ -593,7 +593,7 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
       : [{ nivel: '', juegos: t.cantidad ?? '' }],
     centros: t.centros ?? 1, estudiantes: t.estudiantes ?? '', detalle: t.observaciones || '', evidencia: t.evidencia || '' });
   const [err, setErr] = useState('');
-  const set = k => e => setD({ ...d, [k]: e.target.value });
+  const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
   const entero = v => v === '' || v === null || v === undefined ? null : Math.max(0, Math.round(Number(v)));
   const niv = {};
   d.lineas.forEach(l => { const v = entero(l.juegos); if (l.nivel && v) niv[l.nivel] = (niv[l.nivel] || 0) + v; });
@@ -666,7 +666,7 @@ function EditarTarea({ t, p, ctx, onCerrar, onGuardado }) {
   const nueva = !t.id;
   const [d, setD] = useState({ tipo: 'Tarea', peso: 1, avance: 0, estado: 'No iniciada', ...t });
   const [err, setErr] = useState('');
-  const set = k => e => setD({ ...d, [k]: e.target.value });
+  const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
   async function guardar() {
     if (!(d.nombre || '').trim()) return setErr('El nombre es obligatorio.');
     const fila = {
@@ -761,7 +761,7 @@ function Historial({ p, reportes, editable, ctx, listo, fallo }) {
 function NuevoReporte({ p, ctx, onCerrar, onGuardado }) {
   const [d, setD] = useState({ periodo: mesActualISO(), ficha: 'F-2', avance: p.avance, estado: p.estado === 'No reportada' ? (p.estado_previo || 'En ejecución') : p.estado });
   const [err, setErr] = useState('');
-  const set = k => e => setD({ ...d, [k]: e.target.value });
+  const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
   const prev = (() => { const [y, m] = mesActualISO().split('-').map(Number); return m === 1 ? `${y - 1}-12-01` : `${y}-${String(m - 1).padStart(2, '0')}-01`; })();
   async function guardar() {
     if (!(d.problema_resultado || '').trim() && !(d.resultado_cuantitativo || '').trim()) return setErr('Indique al menos el avance o resultado del mes.');

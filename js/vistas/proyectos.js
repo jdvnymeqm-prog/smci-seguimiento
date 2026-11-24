@@ -143,7 +143,7 @@ export function NuevoProyecto({ ctx, lista, onCerrar, onCreado }) {
   });
   const [err, setErr] = useState('');
   const [ocupado, setOcupado] = useState(false);
-  const set = k => e => setD({ ...d, [k]: e.target.value });
+  const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
   const personas = cat.personas.filter(p => !d.unidad_id || p.unidad_id === d.unidad_id || !p.unidad_id);
 
   async function guardar() {
