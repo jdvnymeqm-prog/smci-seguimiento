@@ -69,7 +69,7 @@ function FilaProyecto({ p, perfil, celdaCodigo, celdaNombre, sub }) {
   const c = colorDir(p.direccion_sigla);
   return html`<tr class=${'clic' + (sub ? ' sub' : '')} onClick=${() => location.hash = '#/proyecto/' + p.id}>
     <td class="nowrap" style=${'border-left:5px solid ' + c.fuerte}>${celdaCodigo || html`<${Codigo} p=${p} />${!p.codigo_estrategico && p.codigo_gobierno ? html`<br/><span class="pill" title="Proyecto de gobierno">PG ${p.codigo_gobierno}</span>` : ''}`}</td>
-    <td>${celdaNombre || p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
+    <td>${celdaNombre || p.nombre}${p.codigos_continuidad ? html`<br/><span class="pill" title="Proyecto al que se dio continuidad: reúne estos códigos">↻ Continuidad: ${p.codigos_continuidad}</span>` : ''}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}
       ${!puedeEditar(perfil, p.unidad_id, p.direccion_id) ? '' : html` <span class="pill">editable</span>`}
       <br/><span class="pill" style=${'background:' + c.suave + ';color:' + c.fuerte + ';border:1px solid ' + c.fuerte}>${p.direccion_sigla}${p.unidad_sigla ? ' · ' + p.unidad_sigla : ' · sin unidad'}</span></td>
     <td>${p.responsable_nombre || html`<i class="ayuda">Sin responsable</i>`}</td>
