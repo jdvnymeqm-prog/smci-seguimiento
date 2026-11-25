@@ -192,6 +192,10 @@ function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
   const unidad = cat.unidades.find(u => u.id === d.unidad_id);
   const personas = cat.personas;
   const nom = id => (personas.find(x => x.id === id) || {}).nombre;
+  // Cambiar responsables: el administrador y la dirección siempre; el personal, si el administrador lo activó para la dirección
+  // (asignar uno cuando falta siempre se permite)
+  const dirP = (cat.todasDirecciones || []).find(x => x.id === p.direccion_id);
+  const puedeCambiarResp = esAdmin || perfil.rol === 'director' || !!dirP?.cambio_responsables || !p.responsable_id;
 
   async function nuevaPersona() {
     const n = prompt('Nombre completo de la persona:');
@@ -284,13 +288,14 @@ function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
       ${esAdmin ? html`<label>Unidad<select value=${d.unidad_id || ''} onChange=${e => { const u = cat.unidades.find(x => x.id === e.target.value); setD({ ...d, unidad_id: e.target.value || null, direccion_id: u ? u.direccion_id : d.direccion_id }); }}>
           <option value="">Por validar (sin unidad)</option>${cat.unidades.map(u => html`<option value=${u.id}>${u.sigla}</option>`)}</select></label>`
         : html`<label>Unidad<input disabled value=${unidad ? unidad.sigla : 'Por validar'} /></label>`}
-      <label>Responsable principal<select value=${d.responsable_id || ''} onChange=${set('responsable_id')}>
+      ${!puedeCambiarResp && html`<div class="ancho"><${Aviso} tipo="info">👥 La modificación de responsables está desactivada en ${p.direccion_sigla}. Si hay que reasignar este proyecto, solicítelo al administrador.<//></div>`}
+      <label>Responsable principal<select value=${d.responsable_id || ''} disabled=${!puedeCambiarResp} onChange=${set('responsable_id')}>
         <option value="">Sin responsable</option>${personas.map(x => html`<option value=${x.id}>${x.nombre}</option>`)}</select>
         <button type="button" style="margin-top:.3rem;width:fit-content" onClick=${nuevaPersona}>+ Agregar persona</button></label>
       <label>Responsables de apoyo
-        <select value="" onChange=${e => e.target.value && !ap.includes(e.target.value) && setAp([...ap, e.target.value])}>
+        <select value="" disabled=${!puedeCambiarResp && apoyos.length > 0} onChange=${e => e.target.value && !ap.includes(e.target.value) && setAp([...ap, e.target.value])}>
           <option value="">Agregar…</option>${personas.filter(x => x.id !== d.responsable_id && !ap.includes(x.id)).map(x => html`<option value=${x.id}>${x.nombre}</option>`)}</select>
-        <span>${ap.map(x => html`<span class="pill" style="margin:.2rem .2rem 0 0;display:inline-block">${nom(x)} <a href="#" onClick=${e => { e.preventDefault(); setAp(ap.filter(y => y !== x)); }}>✕</a></span>`)}</span></label>
+        <span>${ap.map(x => html`<span class="pill" style="margin:.2rem .2rem 0 0;display:inline-block">${nom(x)} ${(puedeCambiarResp || apoyos.length === 0) && html`<a href="#" onClick=${e => { e.preventDefault(); setAp(ap.filter(y => y !== x)); }}>✕</a>`}</span>`)}</span></label>
       <label>Fecha de inicio<${FechaInput} valor=${d.fecha_inicio} onCambio=${v => setD(x => ({ ...x, fecha_inicio: v }))} /></label>
       <label>Fecha de entrega original<${FechaInput} valor=${d.fecha_entrega_original} disabled=${!!p.fecha_entrega_original && !esAdmin} onCambio=${v => setD(x => ({ ...x, fecha_entrega_original: v }))} />
         <span class="ayuda">Para cambiar la fecha vigente use «Reprogramar entrega».</span></label>
