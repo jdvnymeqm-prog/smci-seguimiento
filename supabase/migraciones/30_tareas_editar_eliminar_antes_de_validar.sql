@@ -1,0 +1,7 @@
+-- 30. Tareas: editar y eliminar antes de la validación; validadas, solo el administrador (o la dirección).
+--     · editar_propuesta(p_id, p_datos): quien registró una tarea nueva (crear_tarea) la corrige mientras está pendiente.
+--     · retirar_propuesta(p_id): quien la registró la elimina mientras está pendiente (o el administrador).
+--     · proponer(): en una tarea ya validada, el personal solo puede completar datos que estén vacíos; cambiar un dato
+--       existente queda para el administrador (directo) o la dirección (se aplica sin validación, migración 29).
+--     · Eliminar tareas validadas: solo el administrador (política hijo_elimina = es_admin()).
+--     (Las funciones se aplicaron con reemplazos sobre las versiones vigentes; ver historial de la sesión.)
