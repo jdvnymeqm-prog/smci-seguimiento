@@ -38,7 +38,8 @@ function Usuarios({ ctx }) {
     setEdit({ ...u, aprobar: true, activo: true,
       rol: u.solicitud_unidad_id ? 'responsable' : 'director',
       unidad_id: u.solicitud_unidad_id, direccion_id: u.solicitud_direccion_id,
-      cargo: u.cargo || u.solicitud_cargo, puede_editar: sigla === 'DEDH' });
+      // El director es la máxima autoridad de su dirección: por defecto puede cargar y editar proyectos
+      cargo: u.cargo || u.solicitud_cargo, puede_editar: !u.solicitud_unidad_id || sigla === 'DEDH' });
   }
   async function rechazar(u) {
     if (!confirm(`¿Rechazar la solicitud de ${u.nombre || u.correo}? No podrá ingresar.`)) return;

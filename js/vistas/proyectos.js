@@ -95,7 +95,7 @@ function AsignarResponsable({ p, cat, perfil }) {
     const r = perfil.rol === 'admin'
       ? await sb.from('proyectos').update({ responsable_id: id }).eq('id', p.id).select('id').single()
       : await sb.rpc('proponer', { p_tipo: 'proyecto', p_proyecto: p.id, p_registro: null, p_datos: { cambios: { responsable_id: id } }, p_motivo: null });
-    setMsg(r.error ? mensajeError(r.error) : perfil.rol === 'admin' ? 'Asignado. Actualice la lista.' : 'Enviado a validación.');
+    setMsg(r.error ? mensajeError(r.error) : ['admin', 'director'].includes(perfil.rol) ? 'Asignado. Actualice la lista.' : 'Enviado a validación.');
   }
   return html`<span onClick=${e => e.stopPropagation()}>${msg ? html`<span class="ayuda">${msg}</span>` : html`
     <select class="falta" value="" onChange=${e => elegir(e.target.value)} title="Falta responsable: elíjalo aquí">
@@ -159,6 +159,13 @@ export function NuevoProyecto({ ctx, lista, onCerrar, onCreado }) {
         por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null } });
       setOcupado(false);
       if (error) return setErr(mensajeError(error));
+      if (perfil.rol === 'director') {
+        // La dirección no necesita validación: el proyecto ya existe; se abre su ficha para seguir llenándolo
+        const { data: pr } = await sb.from('proyectos').select('id').eq('codigo', d.codigo.trim()).maybeSingle();
+        if (pr) { onCreado(pr.id); return; }
+        alert('Proyecto creado. Ya aparece en la lista.');
+        return onCerrar();
+      }
       alert('Proyecto enviado a validación. Aparecerá en la lista cuando lo valide.');
       return onCerrar();
     }
