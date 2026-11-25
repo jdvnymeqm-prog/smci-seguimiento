@@ -320,7 +320,8 @@ function Estructura({ ctx }) {
       ${d.edicion_abierta && html`<${Aviso} tipo="atencion">🔓 Edición abierta${d.edicion_abierta_desde ? ' desde el ' + fechaHora(d.edicion_abierta_desde) : ''}${d.edicion_abierta_por ? ' por ' + d.edicion_abierta_por : ''}: todo el personal de ${d.sigla} ve y propone cambios en todas sus unidades. Ciérrela al terminar la reorganización.<//>`}
       <div class="tabla-env"><table><thead><tr><th>Sigla</th><th>Unidad</th><th>Jefe/a</th><th>Antes</th><th>Activa</th><th></th></tr></thead>
         <tbody>${U.filter(u => u.direccion_id === d.id).map(u => html`<tr><td><b>${u.sigla}</b></td><td>${u.nombre}<br/><span class="ayuda">${u.descripcion || ''}</span></td>
-          <td>${u.tiene_jefe === false ? html`<span class="etiqueta">Sin jefe</span><br/><span class="ayuda">Valida el director</span>`
+          <td>${d.es_despacho_secretaria ? html`<span class="etiqueta">Despacho</span><br/><span class="ayuda">Valida solo el administrador</span>`
+            : u.tiene_jefe === false ? html`<span class="etiqueta">Sin jefe</span><br/><span class="ayuda">Valida el director</span>`
             : html`${u.jefe || '—'}${valida[u.id] === 'director' ? html`<br/><span class="etiqueta" title="Ningún usuario con rol «Jefe/a de unidad» activo en esta unidad">Jefe sin cuenta</span> <span class="ayuda">valida el director</span>` : valida[u.id] === 'jefe' ? html`<br/><span class="ayuda">Valida su jefe</span>` : ''}`}</td><td>${u.nombre_anterior || '—'}</td><td>${u.activa ? 'Sí' : 'No'}</td>
           <td><button onClick=${() => setEdit({ tabla: 'unidades', d: u })}>Editar</button></td></tr>`)}</tbody></table></div></div>`)}
     ${edit && html`<${EditarEstructura} e=${edit} D=${D} onCerrar=${() => setEdit(null)} onGuardar=${d => guardar(edit.tabla, d)} />`}
