@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useRef, sb, ESTADOS, fecha, fechaHora, pct, bs, hoyISO, mesActualISO, nombreMes, diasEntre, puedeEditar, bloqueoCambios, exportarExcel, mensajeError, usePestana, codigoTexto, codigoPrincipal, colorDir } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
+import { Estado, EstadoProyecto, Semaforo, Barra, Aviso, Modal, QueFalta, FechaInput, MontoInput } from '../componentes.js';
 import { ListaPropuestas } from './validaciones.js';
 
 const ESTADOS_EDITABLES = ESTADOS.filter(e => e !== 'No reportada');
@@ -63,7 +63,7 @@ export function Ficha({ ctx, id }) {
               : html`<span class="pill">${p.codigo}</span>`}
             ${p.codigos_continuidad && html`<span class="pill" style="background:#fff;font-size:.72rem" title="Códigos que se unieron a este proyecto">también: ${p.codigos_continuidad}</span>`}
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
-            <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />
+            <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />${p.sin_reporte ? html` <span class="etiqueta" title="Meses que debían reportarse y no tienen reporte">Sin reporte: ${p.sin_reporte}</span>` : ''}
             ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>`}</div>
           <h1>${p.nombre}</h1>
           ${p.codigos_continuidad && html`<p class="ayuda" style="margin:.2rem 0 .4rem">↻ <b>Proyecto al que se dio continuidad.</b> Código inicial: <b>${p.codigo}</b>. Se le unieron: ${p.codigos_continuidad}. Las tareas, evidencias y reportes muestran entre corchetes el código con el que se registraron.</p>`}
@@ -253,7 +253,7 @@ function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
   if (!editable) {
     return html`${meta}<div class="panel"><div class="datos">
       <div><small>Nombre</small><b>${p.nombre}</b></div><div><small>Código de proyecto</small><b>${p.codigo}</b>${p.codigos_continuidad ? html`<span class="cod-unidos">${p.codigos_continuidad}</span>` : ''}</div>
-      <div><small>Estado</small><${Estado} e=${p.estado} /></div>
+      <div><small>Estado</small><${EstadoProyecto} p=${p} /></div>
       <div class="ancho"><small>Descripción</small><div class="prewrap">${p.descripcion || '—'}</div></div>
       <div class="ancho"><small>Objetivo o resultado esperado</small><div class="prewrap">${p.objetivo || '—'}</div></div>
       <div><small>Dirección</small>${p.direccion_nombre}</div>

@@ -9,6 +9,10 @@ export const LeyendaDirecciones = ({ cat }) => html`<div class="leyenda-dir">${(
 export const CodigoContinuidad = ({ p, previo }) => html`${previo || ''}<b class="cod-inicial">${p.codigo}</b>
   <span class="cod-unidos" title="Códigos que se unieron a este proyecto (continuidad)">${(p.codigos_continuidad || '').split(',').map(c => c.trim()).filter(Boolean).map(c => html`<span>${c}</span>`)}</span>`;
 
+// Estado real del proyecto y, debajo, los meses en que no se reportó (p. ej. «En ejecución · sin reporte: agosto y septiembre»)
+export const EstadoProyecto = ({ p }) => html`<${Estado} e=${p.estado} />${p.sin_reporte && !p._mes
+  ? html`<div class="sin-reporte" title="Meses que debían reportarse y no tienen reporte">sin reporte: ${p.sin_reporte}</div>` : ''}`;
+
 // Código del proyecto: numeral estratégico arriba y código SMCI debajo
 export const Codigo = ({ p }) => p.codigos_continuidad ? html`<${CodigoContinuidad} p=${p} />` : p.codigo_estrategico
   ? html`<span class="cod-est">${codigoPrincipal(p)}</span>${p.codigo !== p.codigo_estrategico ? html`<span class="cod-smci">${p.codigo}</span>` : ''}`
@@ -178,6 +182,7 @@ export const COLUMNAS_PROYECTO = [
   { titulo: 'Código SMCI', valor: p => p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, ancho: 10 },
   { titulo: 'Cód. gobierno', campo: 'codigo_gobierno', ancho: 10 },
   { titulo: 'Proyecto', campo: 'nombre', ancho: 40 },
+  { titulo: 'Meses sin reporte', valor: p => p.sin_reporte || '', ancho: 22 },
   { titulo: 'Códigos unidos (continuidad)', campo: 'codigos_continuidad', ancho: 22 },
   { titulo: 'Dirección', campo: 'direccion_sigla', ancho: 8 },
   { titulo: 'Unidad', valor: p => p.unidad_sigla || 'Por validar', ancho: 10 },

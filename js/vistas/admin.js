@@ -434,9 +434,9 @@ function Configuracion({ ctx }) {
   }
   async function cierre() {
     const f = simular || null;
-    if (!confirm(`Se marcarán «No reportada» los proyectos sin actualización en el mes${f ? ' de la fecha ' + fecha(f) : ' en curso'}, si ya pasó el día de corte. ¿Continuar?`)) return;
+    if (!confirm(`Se revisará el estado de reporte${f ? ' a la fecha ' + fecha(f) : ''}: solo los proyectos que nunca tuvieron un reporte quedan «No reportada»; los demás conservan su estado y muestran los meses sin reporte. ¿Continuar?`)) return;
     const { data, error } = await sb.rpc('ejecutar_cierre_mes', { p_fecha: f });
-    error ? setMsg({ err: mensajeError(error) }) : setMsg({ ok: `${data} proyecto(s) pasaron a «No reportada».` });
+    error ? setMsg({ err: mensajeError(error) }) : setMsg({ ok: `Revisión hecha: ${data} proyecto(s) actualizados.` });
   }
   async function respaldar() {
     const { error } = await sb.rpc('respaldo_ahora');
@@ -454,11 +454,11 @@ function Configuracion({ ctx }) {
     <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
     <${RespaldoMensual} ctx=${ctx} />
     <h3 style="margin-top:1.25rem">Fecha de corte mensual</h3>
-    <p class="ayuda">Si una unidad no actualiza un proyecto en el mes hasta este día, el sistema lo marca «No reportada» (revisión diaria automática a las 00:05, hora de La Paz).</p>
+    <p class="ayuda">Desde este día, el mes cuenta como «sin reporte» en los proyectos que no tienen reporte ni actualización ese mes: se muestra junto a su estado (p. ej. «En ejecución · sin reporte: octubre»). Solo los proyectos que nunca tuvieron un reporte quedan «No reportada». Revisión diaria automática a las 00:05, hora de La Paz.</p>
     <div class="filtros"><label>Día de corte<input type="number" min="1" max="31" value=${corte} onInput=${e => setCorte(e.target.value)} /></label>
       <button class="prim" onClick=${guardarCorte}>Guardar</button></div>
     <h3 style="margin-top:1.25rem">Cierre de mes manual</h3>
-    <p class="ayuda">Ejecuta ahora la regla «No reportada». Para probar, indique una fecha posterior al corte (simulación con esa fecha).</p>
+    <p class="ayuda">Ejecuta ahora la revisión de reportes. Para probar, indique una fecha posterior al corte (simulación con esa fecha).</p>
     <div class="filtros"><label>Fecha (opcional)<${FechaInput} valor=${simular} onCambio=${setSimular} /></label>
       <button onClick=${cierre}>Ejecutar cierre</button></div>
     <h3 style="margin-top:1.25rem">Respaldos</h3>

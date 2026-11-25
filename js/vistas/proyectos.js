@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, CodigoContinuidad, LeyendaDirecciones } from '../componentes.js';
+import { Estado, EstadoProyecto, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, CodigoContinuidad, LeyendaDirecciones } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
 export function ListaProyectos({ ctx, modo = 'otros' }) {
@@ -74,7 +74,7 @@ function FilaProyecto({ p, perfil, cat, celdaCodigo, celdaNombre, sub }) {
       <br/><span class="pill" style=${'background:' + c.suave + ';color:' + c.fuerte + ';border:1px solid ' + c.fuerte}>${p.direccion_sigla}${p.unidad_sigla ? ' · ' + p.unidad_sigla : ' · sin unidad'}</span></td>
     <td>${p.responsable_nombre || (cat && puedeEditar(perfil, p.unidad_id, p.direccion_id) && !bloqueoCambios(cat, perfil)
       ? html`<${AsignarResponsable} p=${p} cat=${cat} perfil=${perfil} />` : html`<span class="etiqueta">Falta responsable</span>`)}</td>
-    <td><${Estado} e=${p.estado} /></td>
+    <td><${EstadoProyecto} p=${p} /></td>
     <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
     <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>
     <td class="nowrap">${fecha(p.fecha_entrega_vigente)}</td>

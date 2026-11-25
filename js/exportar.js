@@ -38,7 +38,7 @@ export async function exportarTodoExcel(proyectos, ctx, sufijo = '', devolver = 
   const hoja = (nombre, filas) => { const ws = XLSX.utils.json_to_sheet(filas.length ? filas : [{ 'Sin datos': '' }]); XLSX.utils.book_append_sheet(wb, ws, nombre.slice(0, 31)); };
 
   hoja('Proyectos', proyectos.map(p => ({
-    'Código estratégico': p.codigo_estrategico ? codigoPrincipal(p) : '', 'Código SMCI': p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, 'Cód. gobierno': p.codigo_gobierno || '', 'Proyecto': p.nombre, 'Códigos unidos (continuidad)': p.codigos_continuidad || '', 'Dirección': p.direccion_sigla,
+    'Código estratégico': p.codigo_estrategico ? codigoPrincipal(p) : '', 'Código SMCI': p.codigo_estrategico && p.codigo === p.codigo_estrategico ? '' : p.codigo, 'Cód. gobierno': p.codigo_gobierno || '', 'Proyecto': p.nombre, 'Meses sin reporte': p.sin_reporte || '', 'Códigos unidos (continuidad)': p.codigos_continuidad || '', 'Dirección': p.direccion_sigla,
     'Unidad': p.unidad_sigla || 'Por validar', 'Responsable': p.responsable_nombre || '', 'Apoyo': p.apoyos_nombres || '',
     'Estado': p.estado, '% avance': Number(p.avance || 0), 'Inicio': fecha(p.fecha_inicio), 'Entrega original': fecha(p.fecha_entrega_original),
     'Entrega vigente': fecha(p.fecha_entrega_vigente), 'N.º reprogramaciones': p.n_reprogramaciones, 'Semáforo': p.semaforo,
