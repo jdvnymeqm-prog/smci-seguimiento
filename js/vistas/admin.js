@@ -291,6 +291,14 @@ function Estructura({ ctx }) {
     if (error) return setMsg({ err: mensajeError(error) });
     setMsg({ ok: activa ? `Edición abierta en ${d.sigla}. El personal debe cerrar y volver a abrir la app para verla.` : `Edición de ${d.sigla} vuelta a la normalidad.` }); recargar();
   }
+  async function cambioResponsables(d, activa) {
+    if (!confirm(activa
+      ? `¿Activar la modificación de responsables en ${d.sigla}? El personal podrá proponer cambios de responsable y de apoyo en los proyectos de ${d.sigla} (se siguen validando).`
+      : `¿Desactivar la modificación de responsables en ${d.sigla}? Solo el administrador y la dirección podrán cambiarlos; donde falte un responsable se podrá seguir asignando.`)) return;
+    const { error } = await sb.rpc('cambiar_modificacion_responsables', { p_direccion: d.id, p_activa: activa });
+    if (error) return setMsg({ err: mensajeError(error) });
+    setMsg({ ok: activa ? `Modificación de responsables activada en ${d.sigla}.` : `Modificación de responsables desactivada en ${d.sigla}.` }); recargar();
+  }
   const D = cat.todasDirecciones, U = cat.todasUnidades;
   return html`<div class="panel">
     <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
@@ -303,7 +311,12 @@ function Estructura({ ctx }) {
         <div class="acciones">${!d.es_despacho_secretaria && (d.edicion_abierta
             ? html`<button class="peligro" onClick=${() => edicionAbierta(d, false)} title="Volver a lo normal: cada unidad edita lo suyo">🔒 Cerrar edición abierta</button>`
             : html`<button onClick=${() => edicionAbierta(d, true)} title="Temporal: todo el personal de la dirección edita todas sus unidades">🔓 Abrir edición a toda la dirección</button>`)}
+          ${d.cambio_responsables
+            ? html`<button class="peligro" onClick=${() => cambioResponsables(d, false)} title="Solo el administrador y la dirección podrán cambiar responsables">👥 Desactivar cambio de responsables</button>`
+            : html`<button onClick=${() => cambioResponsables(d, true)} title="El personal podrá proponer cambios de responsable (se validan)">👥 Activar cambio de responsables</button>`}
           <button onClick=${() => setEdit({ tabla: 'direcciones', d })}>Editar</button></div></div>
+      <p class="ayuda" style="margin:.2rem 0 .6rem">👥 Modificación de responsables: <b>${d.cambio_responsables ? 'activada' : 'desactivada'}</b>${d.cambio_responsables && d.cambio_responsables_desde ? ' desde el ' + fechaHora(d.cambio_responsables_desde) + (d.cambio_responsables_por ? ' por ' + d.cambio_responsables_por : '') : ''}.
+        ${d.cambio_responsables ? 'El personal puede proponer cambios de responsable y apoyo (se validan).' : 'Solo el administrador y la dirección pueden cambiar responsables; donde falte, se puede asignar.'}</p>
       ${d.edicion_abierta && html`<${Aviso} tipo="atencion">🔓 Edición abierta${d.edicion_abierta_desde ? ' desde el ' + fechaHora(d.edicion_abierta_desde) : ''}${d.edicion_abierta_por ? ' por ' + d.edicion_abierta_por : ''}: todo el personal de ${d.sigla} ve y propone cambios en todas sus unidades. Ciérrela al terminar la reorganización.<//>`}
       <div class="tabla-env"><table><thead><tr><th>Sigla</th><th>Unidad</th><th>Jefe/a</th><th>Antes</th><th>Activa</th><th></th></tr></thead>
         <tbody>${U.filter(u => u.direccion_id === d.id).map(u => html`<tr><td><b>${u.sigla}</b></td><td>${u.nombre}<br/><span class="ayuda">${u.descripcion || ''}</span></td>
