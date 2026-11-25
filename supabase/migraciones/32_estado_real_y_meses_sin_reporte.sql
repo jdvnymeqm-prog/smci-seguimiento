@@ -1,0 +1,9 @@
+-- 32. Estado real + meses sin reporte (en lugar de pisar el estado con «No reportada»).
+--   · ultimo_mes_exigible(): el mes actual si pasó el día de corte; si no, el anterior.
+--   · meses_reportados(proyecto): meses con reporte real (no cuenta el registro «No reportada» del sistema).
+--   · meses_sin_reporte(proyecto): meses sin reporte desde el primer mes reportado hasta el último exigible
+--     (el mes en curso cuenta como reportado si el proyecto se actualizó en ese mes). texto_meses(): «agosto y septiembre».
+--   · v_proyectos: columnas meses_sin_reporte (date[]) y sin_reporte (texto).
+--   · marcar_no_reportadas(): «No reportada» SOLO para proyectos que nunca tuvieron un reporte; los que tienen reportes
+--     recuperan su estado real (estado_previo). Aplicado el 25/11/2026: 23 proyectos recuperaron su estado.
+--   · trg_reportes_efectos(): un reporte real de cualquier mes saca al proyecto de «No reportada».

@@ -1,5 +1,5 @@
 import { html, useState, useEffect, sb, fecha, hoyISO, diasEntre, nombreMes, mesActualISO, mensajeError, codigoTexto, colorDir } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, Codigo } from '../componentes.js';
+import { Estado, EstadoProyecto, Semaforo, Barra, Aviso, Codigo } from '../componentes.js';
 
 export function MiUnidad({ ctx }) {
   const { perfil, cat } = ctx;
@@ -45,7 +45,7 @@ export function MiUnidad({ ctx }) {
   const Lista = ({ items, vacio, extra }) => items.length ? html`<div class="tabla-env"><table>
       <thead><tr><th>Código</th><th>Proyecto</th><th>Estado</th><th>Avance</th><th>Vigente</th><th></th>${extra && html`<th>${extra.titulo}</th>`}</tr></thead>
       <tbody>${items.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
-        <td class="nowrap"><${Codigo} p=${p} /></td><td>${p.nombre}</td><td><${Estado} e=${p.estado} /></td>
+        <td class="nowrap"><${Codigo} p=${p} /></td><td>${p.nombre}</td><td><${EstadoProyecto} p=${p} /></td>
         <td style="min-width:110px"><${Barra} v=${p.avance} /></td><td class="nowrap">${fecha(p.fecha_entrega_vigente)}</td>
         <td><${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} /></td>${extra && html`<td>${extra.valor(p)}</td>`}</tr>`)}</tbody></table></div>`
     : html`<div class="vacio">${vacio}</div>`;
@@ -71,7 +71,7 @@ export function MiUnidad({ ctx }) {
       <p class="ayuda">Ábralos y use «Completar datos del proyecto» para asignar la unidad y el responsable.</p>
       <${Lista} items=${sinUnidad} vacio="" /></div>`}
     <div class="panel"><h2>Lo que debo actualizar este mes</h2>
-      <p class="ayuda">Actualice cada proyecto (datos, tareas o reporte mensual) antes del ${fecha(fechaCorte)}. Si no, el sistema lo marcará «No reportada».</p>
+      <p class="ayuda">Actualice cada proyecto (datos, tareas o reporte mensual) antes del ${fecha(fechaCorte)}. Si no, ese mes figurará como «sin reporte» junto a su estado.</p>
       <${Lista} items=${porActualizar} vacio="Todo al día este mes." extra=${{ titulo: 'Última actualización', valor: p => fecha(p.ultima_actualizacion) }} /></div>
     <div class="panel"><h2>Vence pronto (15 días o menos)</h2>
       <${Lista} items=${vencen} vacio="Ningún proyecto vence en los próximos 15 días." extra=${{ titulo: 'Días', valor: p => p.dias_restantes }} /></div>

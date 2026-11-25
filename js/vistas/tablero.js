@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useRef, useMemo, sb, ESTADOS, fecha, pct, mesActualISO, nombreMes, exportarExcel, exportarPDF, mensajeError, colorDir } from '../lib.js';
-import { Estado, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
+import { Estado, EstadoProyecto, Semaforo, Barra, Aviso, QueFalta, Filtros, filtrosVacios, aplicarFiltros, resumen, describirFiltros, COLUMNAS_PROYECTO, Codigo, LeyendaDirecciones } from '../componentes.js';
 import { exportarTodoExcel, exportarTodoPDF } from '../exportar.js';
 
 function BotonesExportarTodo({ lista, ctx, sub }) {
@@ -152,6 +152,7 @@ export function Tablero({ ctx }) {
       <div class="kpi"><div class="v">${pct(+r.avancePromedio.toFixed(1))}</div><div class="t">Avance promedio</div></div>
       ${ESTADOS.map(e => html`<div class="kpi ${e === 'No reportada' && r.porEstado[e] ? 'alerta' : ''}"><div class="v">${r.porEstado[e]}</div><div class="t">${e}</div></div>`)}
       <div class="kpi ${r.vencidos ? 'alerta' : ''}"><div class="v">${r.vencidos}</div><div class="t">Vencidos sin concluir</div></div>
+      ${!enMes && html`<div class="kpi ${filtrada.some(p => p.sin_reporte) ? 'aviso' : ''}" title="Proyectos con al menos un mes sin reporte (se indica cuál junto a su estado)"><div class="v">${filtrada.filter(p => p.sin_reporte).length}</div><div class="t">Con meses sin reporte</div></div>`}
       <div class="kpi ${r.reprogramados ? 'aviso' : ''}"><div class="v">${r.reprogramados}</div><div class="t">Reprogramados</div></div>
       <div class="kpi ${r.porValidar ? 'aviso' : ''}" style=${r.porValidar ? 'cursor:pointer' : ''} onClick=${() => r.porValidar && setVerRevisar(!verRevisar)}
         title="Proyectos cuyos datos de la carga inicial deben revisarse (unidad o responsable dudosos). No son cambios pendientes de validación.">
@@ -183,7 +184,7 @@ export function Tablero({ ctx }) {
         <tbody>${est.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
           <td class="nowrap" style=${'border-left:5px solid ' + colorDir(p.direccion_sigla).fuerte}><${Codigo} p=${p} /><br/><span class="pill" style=${'background:' + colorDir(p.direccion_sigla).suave + ';color:' + colorDir(p.direccion_sigla).fuerte}>${p.direccion_sigla} · ${p.unidad_sigla || 'Sin unidad'}</span></td>
           <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
-          <td><${Estado} e=${p.estado} /></td>
+          <td><${EstadoProyecto} p=${p} /></td>
           <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
           <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>
           <td class="nowrap">${fecha(p.fecha_entrega_vigente)}${p.n_reprogramaciones ? html` <span class="pill" title="Reprogramaciones">↻${p.n_reprogramaciones}</span>` : ''}</td>
@@ -199,7 +200,7 @@ export function Tablero({ ctx }) {
         <tbody>${otros.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
           <td class="nowrap" style=${'border-left:5px solid ' + colorDir(p.direccion_sigla).fuerte}><${Codigo} p=${p} /><br/><span class="pill" style=${'background:' + colorDir(p.direccion_sigla).suave + ';color:' + colorDir(p.direccion_sigla).fuerte}>${p.direccion_sigla} · ${p.unidad_sigla || 'Sin unidad'}</span></td>
           <td>${p.nombre}${p.por_validar ? html` <span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>` : ''}</td>
-          <td><${Estado} e=${p.estado} /></td>
+          <td><${EstadoProyecto} p=${p} /></td>
           <td style="min-width:120px"><${Barra} v=${p.avance} /></td>
           <td class="nowrap">${fecha(p.fecha_entrega_original)}</td>
           <td class="nowrap">${fecha(p.fecha_entrega_vigente)}${p.n_reprogramaciones ? html` <span class="pill" title="Reprogramaciones">↻${p.n_reprogramaciones}</span>` : ''}</td>

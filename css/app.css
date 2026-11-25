@@ -207,3 +207,4 @@ input.falta.corto { width: 64px; }
 .tabla-productos tr.fila-nueva td { background: #f4faf6; vertical-align: top; }
 .tabla-productos tr.fila-nueva input, .tabla-productos tr.fila-nueva select { font-size: .82rem; padding: .25rem .35rem; min-width: 0; }
 .tabla-productos tr.fila-nueva input.corto { width: 62px; }
+.sin-reporte { font-size: .74rem; color: var(--rojo, #b3261e); margin-top: .15rem; line-height: 1.2; }
