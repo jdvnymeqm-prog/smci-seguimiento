@@ -12,24 +12,29 @@ export function Ficha({ ctx, id }) {
   const [reportes, setReportes] = useState([]);
   const [evid, setEvid] = useState([]);
   const [apoyos, setApoyos] = useState([]);
+  const [pendientes, setPendientes] = useState([]);   // tareas nuevas que esperan validación
   const [tab, setTab] = usePestana('pestana', 'datos');
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
 
   async function cargar() {
-    const [a, b, c, d, e, f] = await Promise.all([
+    const [a, b, c, d, e, f, g] = await Promise.all([
       sb.from('v_proyectos').select('*').eq('id', id).single(),
       sb.from('tareas').select('*').eq('proyecto_id', id).order('orden').order('fecha_fin_vigente', { nullsFirst: false }),
       sb.from('reprogramaciones').select('*').eq('proyecto_id', id).order('creado_en', { ascending: false }),
       sb.from('reportes_mensuales').select('*').eq('proyecto_id', id).order('periodo', { ascending: false }),
       sb.from('evidencias').select('*').eq('proyecto_id', id).order('creado_en', { ascending: false }),
       sb.from('proyecto_apoyos').select('persona_id').eq('proyecto_id', id),
+      sb.from('propuestas').select('id,datos,creado_por,creado_por_nombre,creado_en').eq('proyecto_id', id).eq('tipo', 'crear_tarea').eq('estado', 'pendiente').order('creado_en'),
     ]);
     const er = a.error || b.error || c.error || d.error || e.error || f.error;
     if (a.error && a.error.code === 'PGRST116') { setErr('Este proyecto no existe o no pertenece a su unidad o dirección.'); return; }
     if (er) { setErr(mensajeError(er)); return; }
     setP(a.data); setTareas(b.data); setReprog(c.data); setReportes(d.data); setEvid(e.data);
     setApoyos(f.data.map(x => x.persona_id));
+    // Cada tarea pendiente se muestra como tarea (marcada «pendiente») con su propuesta para editarla o eliminarla
+    setPendientes((g.data || []).map(m => ({ ...m.datos, id: 'prop-' + m.id, _prop: m.id, _autor: m.creado_por, _autorNombre: m.creado_por_nombre,
+      estado: m.datos?.estado || 'No iniciada', fecha_fin_vigente: m.datos?.fecha_fin_original || null })));
   }
   useEffect(() => { cargar(); }, [id]);
   // El director es la máxima autoridad de su dirección: lo que registra se aplica sin validación
@@ -42,10 +47,10 @@ export function Ficha({ ctx, id }) {
   if (!p) return html`<div class="vacio">Cargando ficha…</div>`;
   // Con el bloqueo general activo, solo el administrador edita
   const editable = puedeEditar(perfil, p.unidad_id, p.direccion_id) && !bloqueoCambios(cat, perfil);
-  const h = { p, tareas, reprog, reportes, evid, apoyos, editable, ctx, listo, fallo, recargar: cargar };
+  const h = { p, tareas, pendientes, reprog, reportes, evid, apoyos, editable, ctx, listo, fallo, recargar: cargar };
 
   const tabs = [
-    ['datos', 'Datos generales'], ['tareas', `Tareas (${tareas.length})`],
+    ['datos', 'Datos generales'], ['tareas', `Tareas (${tareas.length}${pendientes.length ? ' + ' + pendientes.length + ' por validar' : ''})`],
     ['reprog', `Reprogramaciones (${reprog.length})`], ['historial', `Historial mensual (${reportes.length})`],
     ['evid', `Evidencias (${evid.length})`], ['propuestas', `Cambios propuestos${p.n_mod_pendientes ? ' (' + p.n_mod_pendientes + ')' : ''}`], ['bitacora', 'Bitácora'],
   ];
@@ -351,11 +356,20 @@ function Gantt({ tareas, p }) {
   <p class="ayuda">Barra: inicio → fin vigente (relleno = avance). Línea punteada: fin original. Línea roja: hoy. Contorno rojo: vencida sin concluir.</p>`;
 }
 
-function Tareas({ p, tareas: todas, editable, ctx, listo, fallo }) {
+function Tareas({ p, tareas: validadas, pendientes = [], editable, ctx, listo, fallo }) {
   const [edit, setEdit] = useState(null);
+  const [entregaNueva, setEntregaNueva] = useState(false);
+  const { perfil } = ctx;
+  const todas = [...validadas, ...pendientes];
   // En el proyecto de mobiliario los productos (entregas) van en su propia tabla; aquí quedan las demás tareas
   const tareas = p.meta_productos ? todas.filter(t => t.tipo !== 'Producto') : todas;
-  const [entregaNueva, setEntregaNueva] = useState(false);
+  // Editar o eliminar: la tarea pendiente, quien la registró (o el administrador); la validada, solo el administrador (o la dirección)
+  const puedeTocar = t => t._prop ? (perfil.rol === 'admin' || t._autor === perfil.id) : (perfil.rol === 'admin' || perfil.rol === 'director');
+  async function retirar(t) {
+    if (!confirm(`¿Eliminar la tarea «${t.nombre}»? Aún no fue validada, así que se descarta.`)) return;
+    const { error } = await sb.rpc('retirar_propuesta', { p_id: t._prop });
+    error ? fallo(error) : listo('Tarea eliminada (no había sido validada).');
+  }
   const pesoTotal = tareas.filter(t => t.estado !== 'Cancelada').reduce((a, t) => a + Number(t.peso), 0);
   async function borrar(t) {
     if (!confirm(`¿Eliminar la tarea «${t.nombre}»? Queda registrado en la bitácora.`)) return;
@@ -363,8 +377,9 @@ function Tareas({ p, tareas: todas, editable, ctx, listo, fallo }) {
     error ? fallo(error) : listo('Tarea eliminada.');
   }
   return html`
-    ${p.meta_productos && html`<${Entregas} p=${p} tareas=${todas} editable=${editable} ctx=${ctx} listo=${listo} />`}
-    <div class="panel"><h3>Línea de tiempo</h3><${Gantt} tareas=${tareas} p=${p} /></div>
+    ${p.meta_productos && html`<${Entregas} p=${p} tareas=${todas} editable=${editable} ctx=${ctx} listo=${listo} fallo=${fallo} puedeTocar=${puedeTocar} retirar=${retirar} />`}
+    <div class="panel"><h3>Línea de tiempo</h3><${Gantt} tareas=${todas.filter(t => !t._prop)} p=${p} />
+      ${p.meta_productos && html`<p class="ayuda">Incluye las entregas de mobiliario con su fecha de entrega.</p>`}</div>
     <div class="panel">
       <div class="encabezado"><div><h3>${p.meta_productos ? 'Otras tareas' : 'Tareas'}</h3><p>Peso total ${pesoTotal}. El avance del proyecto es Σ(peso × avance) / Σ peso.</p></div>
         <div class="acciones">${editable && html`<button class="prim" onClick=${() => p.meta_productos ? setEntregaNueva(true) : setEdit({})}>+ Nueva tarea</button>`}
@@ -372,20 +387,25 @@ function Tareas({ p, tareas: todas, editable, ctx, listo, fallo }) {
       <div class="tabla-env"><table>
         <thead><tr><th>Tarea</th><th>Responsable</th><th>Inicio</th><th>Fin original</th><th>Fin vigente</th><th class="num">Peso</th><th>Avance</th><th>Estado</th><th>Evidencia</th>${editable && html`<th></th>`}</tr></thead>
         <tbody>${tareas.map(t => html`<tr>
-          <td><span class="pill">${t.tipo}</span> ${t.codigo ? html`<span class="pill">${t.codigo}</span>` : ''}${t.tipo_centro ? html` <span class="pill">${t.tipo_centro}</span>` : ''}<br/>${t.nombre}</td>
+          <td><span class="pill">${t.tipo}</span> ${t.codigo ? html`<span class="pill">${t.codigo}</span>` : ''}${t.tipo_centro ? html` <span class="pill">${t.tipo_centro}</span>` : ''}
+            ${t._prop ? html` <span class="etiqueta" title=${'Registrada por ' + (t._autorNombre || '') + '; espera validación'}>Pendiente de validación</span>` : ''}<br/>${t.nombre}</td>
           <td>${(ctx.cat.personas.find(x => x.id === t.responsable_id) || {}).nombre || t.responsable_texto || '—'}</td>
           <td class="nowrap">${fecha(t.fecha_inicio)}</td><td class="nowrap">${fecha(t.fecha_fin_original)}</td>
           <td class="nowrap">${fecha(t.fecha_fin_vigente)}</td><td class="num">${t.peso}</td>
           <td style="min-width:110px"><${Barra} v=${t.avance} /></td><td><${Estado} e=${t.estado} /></td>
           <td>${t.evidencia || '—'}</td>
           ${editable && html`<td class="nowrap"><div class="acciones">
-            <button onClick=${() => setEdit(t)}>Editar</button>
+            ${puedeTocar(t) && html`<button onClick=${() => setEdit(t)}>Editar</button>`}
+            ${t._prop && puedeTocar(t) && html`<button class="peligro" onClick=${() => retirar(t)}>Eliminar</button>`}
+            ${!t._prop && !puedeTocar(t) && html`<span class="ayuda" title="La tarea ya fue validada: para cambiarla o eliminarla consulte al administrador">🔒 Validada</span>`}
+            ${!t._prop && html`
             <${BotonReprogramar} chico titulo=${'Reprogramar tarea: ' + t.nombre} actual=${t.fecha_fin_vigente}
               onGuardar=${async (f, m) => {
                 if (ctx.perfil.rol === 'admin') { const { error } = await sb.rpc('reprogramar_tarea', { p_id: t.id, p_fecha: f, p_motivo: m }); if (error) throw error; return listo('Tarea reprogramada. La fecha vigente del proyecto y el semáforo se actualizaron si correspondía.'); }
                 const { error } = await sb.rpc('proponer', { p_tipo: 'reprogramar_tarea', p_proyecto: p.id, p_registro: t.id, p_datos: { fecha: f }, p_motivo: m });
                 if (error) throw error; listo('Reprogramación enviada a validación. Se aplicará cuando la valide.'); }} />
-            ${ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => borrar(t)}>Eliminar</button>`}</div></td>`}
+            `}
+            ${!t._prop && ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => borrar(t)}>Eliminar</button>`}</div></td>`}
         </tr>`)}</tbody></table>
         ${!tareas.length && html`<div class="vacio">Sin tareas. ${editable ? 'Agregue la primera.' : ''}</div>`}</div>
     </div>
@@ -450,7 +470,7 @@ const juegos = t => Number(t.cantidad || 0);
 
 // Pestaña Tareas del proyecto de mobiliario: cada entrega es un producto (unidad educativa + juegos por nivel).
 // Los datos que falten quedan como casillas libres para llenar; al final, totales por nivel, U.E. atendidas y % sobre el total.
-function Entregas({ p, tareas, editable, ctx, listo }) {
+function Entregas({ p, tareas, editable, ctx, listo, fallo, puedeTocar = () => false, retirar }) {
   const [form, setForm] = useState(null);          // {} = nueva entrega; tarea = corregir
   const [pend, setPend] = useState(0);
   useEffect(() => {
@@ -460,7 +480,7 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
   const meta = p.meta_productos;
   const entregas = tareas.filter(t => t.tipo === 'Producto')
     .sort((a, b) => (a.fecha_fin_original || '9').localeCompare(b.fecha_fin_original || '9') || (a.orden ?? 0) - (b.orden ?? 0));
-  const hechas = entregas.filter(t => t.estado === 'Concluida');
+  const hechas = entregas.filter(t => t.estado === 'Concluida' && !t._prop);   // solo lo validado suma
   const nivel = (t, n) => (t.niveles || {})[n];
   const asignado = t => NIVELES.reduce((a, n) => a + Number(nivel(t, n) || 0), 0);
   const porAsignar = t => Math.max(0, juegos(t) - asignado(t));
@@ -470,10 +490,15 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
   const at = ueAtendidas(hechas);
   const pct = (a, b) => b ? Math.round(1000 * a / b) / 10 : 0;
   const nombreTipo = k => (TIPOS_CENTRO.find(x => x[0] === k) || [k, k])[1];
-  const c = (t, campo, valor, extra = {}) => html`<${Celda} t=${t} p=${p} ctx=${ctx} listo=${listo} editable=${editable} campo=${campo} valor=${valor} ...${extra} />`;
+  async function eliminarValidada(t) {
+    if (!confirm(`¿Eliminar la entrega «${t.nombre}»? Ya fue validada; quedará registrado en la bitácora y los totales se recalcularán.`)) return;
+    const { error } = await sb.from('tareas').delete().eq('id', t.id).select('id').single();
+    error ? fallo(error) : listo('Entrega eliminada. Los totales y el avance se recalcularon.');
+  }
+  const c = (t, campo, valor, extra = {}) => html`<${Celda} t=${t} p=${p} ctx=${ctx} listo=${listo} editable=${editable && !t._prop} campo=${campo} valor=${valor} ...${extra} />`;
   return html`<div class="panel">
     <div class="encabezado"><div><h3>Productos: entregas de mobiliario</h3>
-      <p>Cada fila es una entrega: unidad educativa y juegos de mobiliario por nivel. Las casillas vacías quedan libres para llenar el dato que falta.</p></div>
+      <p>Cada fila es una entrega registrada con «+ Nueva tarea»: se ordena sola por fecha y suma a los totales y a la línea de tiempo al ser validada. Las casillas vacías quedan libres para completar el dato que falta.</p></div>
       <div class="acciones">${editable && html`<button class="prim" onClick=${() => setForm({})}>+ Agregar tarea (entrega de mobiliario)</button>`}
         <button onClick=${() => exportarExcel('entregas_mobiliario_' + p.codigo, COL_ENTREGAS, entregas.map(t => ({ ...t, ue: nUE(t), por_asignar: porAsignar(t) || '' })), 'Entregas')}>Exportar Excel</button></div></div>
     ${pend > 0 && html`<${Aviso} tipo="info">${pend} registro(s) esperan validación del jefe de unidad; se sumarán al validarlos.<//>`}
@@ -483,7 +508,7 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
           <th colspan="3" class="centro">Juegos de mobiliario por nivel</th><th rowspan="2" class="num">Total juegos</th><th rowspan="2">Evidencia</th>${editable && html`<th rowspan="2"></th>`}</tr>
         <tr>${NIVELES.map(n => html`<th class="num">${n}</th>`)}</tr></thead>
       <tbody>${entregas.map((t, i) => html`<tr>
-          <td>${t.codigo || i + 1}</td>
+          <td>${t.codigo || i + 1}${t._prop ? html`<br/><span class="etiqueta" title=${'Registrada por ' + (t._autorNombre || '')}>Por validar</span>` : ''}</td>
           <td class="nowrap">${c(t, 'fecha_fin_original', t.fecha_fin_original, { tipo: 'date', mostrar: fecha(t.fecha_fin_original) })}</td>
           <td>${c(t, 'nombre', t.nombre, { tipo: 'text', negrita: true })}</td>
           <td>${c(t, 'tipo_centro', t.tipo_centro, { opciones: TIPOS_CENTRO, mostrar: t.tipo_centro && nombreTipo(t.tipo_centro) })}</td>
@@ -491,8 +516,10 @@ function Entregas({ p, tareas, editable, ctx, listo }) {
           ${NIVELES.map(n => html`<td class="num">${c(t, 'nivel:' + n, nivel(t, n), { tipo: 'number' })}</td>`)}
           <td class="num"><b>${juegos(t) || ''}</b>${porAsignar(t) > 0 && html`<div class="ayuda" title="Juegos registrados sin nivel: anótelos en Inicial, Primaria o Secundaria">${porAsignar(t)} sin nivel</div>`}</td>
           <td class="ayuda">${c(t, 'evidencia', t.evidencia, { tipo: 'text' })}</td>
-          ${editable && html`<td><button onClick=${() => setForm(t)}>Corregir</button></td>`}</tr>`)}
-        ${editable && html`<${FilaNueva} p=${p} ctx=${ctx} listo=${listo} n=${entregas.length + 1} />`}</tbody>
+          ${editable && html`<td class="nowrap">${puedeTocar(t) ? html`<div class="acciones"><button onClick=${() => setForm(t)}>Editar</button>
+              ${t._prop && html`<button class="peligro" onClick=${() => retirar(t)}>Eliminar</button>`}
+              ${!t._prop && ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => eliminarValidada(t)}>Eliminar</button>`}</div>`
+            : html`<span class="ayuda" title="Entrega validada: para cambiarla o eliminarla consulte al administrador">🔒 Validada</span>`}</td>`}</tr>`)}</tbody>
       <tfoot><tr class="total"><td colspan="5"><b>Total juegos de mobiliario por nivel</b></td>
           ${NIVELES.map(n => html`<td class="num"><b>${totNivel(n)}</b></td>`)}
           <td class="num"><b>${totJuegos}</b>${totPorAsignar > 0 && html`<div class="ayuda">${totPorAsignar} sin nivel</div>`}</td><td colspan=${editable ? 2 : 1}></td></tr>
@@ -509,43 +536,6 @@ async function guardarEntregaNueva(p, ctx, fila, fechaEntrega) {
   return ctx.perfil.rol === 'admin'
     ? sb.from('tareas').insert({ ...datos, proyecto_id: p.id, fecha_fin_vigente: fechaEntrega }).select('id').single()
     : sb.rpc('proponer', { p_tipo: 'crear_tarea', p_proyecto: p.id, p_registro: null, p_datos: datos, p_motivo: null });
-}
-
-// Última fila de la tabla: nueva tarea (entrega) con la misma estructura, para llenar directamente
-function FilaNueva({ p, ctx, listo, n }) {
-  const vacia = { fecha: '', nombre: '', tipo_centro: '', centros: 1, Inicial: '', Primaria: '', Secundaria: '', evidencia: '' };
-  const [d, setD] = useState(vacia);
-  const [err, setErr] = useState('');
-  const [ocupado, setOcupado] = useState(false);
-  const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
-  const ent = v => v === '' || v === null ? 0 : Math.max(0, Math.round(Number(v)));
-  const total = NIVELES.reduce((a, k) => a + ent(d[k]), 0);
-  async function agregar() {
-    setErr('');
-    if (!d.fecha) return setErr('Falta la fecha de entrega.');
-    if (!d.nombre.trim()) return setErr('Falta el nombre de la unidad educativa.');
-    if (!d.tipo_centro) return setErr('Elija la categoría de la unidad educativa.');
-    if (!total) return setErr('Anote la cantidad de juegos en Inicial, Primaria o Secundaria.');
-    const niveles = Object.fromEntries(NIVELES.map(k => [k, ent(d[k])]).filter(([, v]) => v));
-    setOcupado(true);
-    const r = await guardarEntregaNueva(p, ctx, { nombre: d.nombre.trim().replace(/\s+/g, ' '), tipo_centro: d.tipo_centro,
-      centros: ent(d.centros) || 1, cantidad: total, niveles, evidencia: d.evidencia.trim() || null }, d.fecha);
-    setOcupado(false);
-    if (r.error) return setErr(mensajeError(r.error));
-    setD(vacia);
-    listo(ctx.perfil.rol === 'admin' ? 'Tarea (entrega) agregada: los totales y el avance ya se actualizaron.' : 'Tarea (entrega) enviada a validación: se sumará a los totales cuando la valide su jefe de unidad.');
-  }
-  return html`<tr class="fila-nueva">
-    <td><b>${n}</b></td>
-    <td><${FechaInput} valor=${d.fecha} onCambio=${v => setD(x => ({ ...x, fecha: v }))} /></td>
-    <td><input value=${d.nombre} onInput=${set('nombre')} placeholder="Nombre de la unidad educativa" /></td>
-    <td><select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Categoría…</option>${TIPOS_CENTRO.map(([k, x]) => html`<option value=${k}>${x}</option>`)}</select></td>
-    <td class="num"><input class="corto" type="number" min="1" step="1" value=${d.centros} onInput=${set('centros')} title="N.º de unidades educativas atendidas en esta entrega" /></td>
-    ${NIVELES.map(k => html`<td class="num"><input class="corto" type="number" min="0" step="1" value=${d[k]} onInput=${set(k)} placeholder="0" /></td>`)}
-    <td class="num"><b>${total || ''}</b></td>
-    <td><input value=${d.evidencia} onInput=${set('evidencia')} placeholder="Acta / enlace" /></td>
-    <td><button class="prim" disabled=${ocupado} onClick=${agregar}>${ocupado ? 'Guardando…' : '+ Agregar'}</button>
-      ${err && html`<div class="ayuda" style="color:var(--rojo);max-width:160px">${err}</div>`}</td></tr>`;
 }
 
 // Celda de la tabla de productos: muestra el dato; si falta y se puede editar, deja la casilla libre para llenarlo
@@ -614,6 +604,11 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
       estudiantes: entero(d.estudiantes), observaciones: d.detalle.trim() || null, evidencia: d.evidencia.trim() || null };
     const admin = ctx.perfil.rol === 'admin';
     let r;
+    if (t._prop) {
+      r = await sb.rpc('editar_propuesta', { p_id: t._prop, p_datos: { ...fila, tipo: 'Producto', fecha_fin_original: d.fecha, peso: 1, avance: 100, estado: 'Concluida' } });
+      if (r.error) return setErr(mensajeError(r.error));
+      return onGuardado('Entrega corregida. Sigue pendiente de validación.');
+    }
     if (nueva) {
       r = await guardarEntregaNueva(p, ctx, fila, d.fecha);
     } else {
@@ -638,8 +633,8 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
         <span class="ayuda">Normalmente 1. Si la entrega abarcó varias U.E. con un solo registro (p. ej. un macrodistrito), indique cuántas.</span></label>
       <label>Categoría de unidad educativa<select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Elija…</option>
         ${TIPOS_CENTRO.map(([k, n]) => html`<option value=${k}>${n}</option>`)}</select></label>
-      <label>Fecha de entrega<${FechaInput} valor=${d.fecha} disabled=${!nueva && ctx.perfil.rol !== 'admin'} onCambio=${v => setD(x => ({ ...x, fecha: v }))} />
-        ${!nueva && ctx.perfil.rol !== 'admin' && html`<span class="ayuda">La fecha la corrige el administrador.</span>`}</label>
+      <label>Fecha de entrega<${FechaInput} valor=${d.fecha} disabled=${!nueva && !t._prop && ctx.perfil.rol !== 'admin'} onCambio=${v => setD(x => ({ ...x, fecha: v }))} />
+        ${!nueva && !t._prop && ctx.perfil.rol !== 'admin' && html`<span class="ayuda">La fecha la corrige el administrador.</span>`}</label>
       <fieldset class="ancho" style="border:1px solid var(--borde,#d6dde1);border-radius:8px;padding:.6rem .8rem">
         <legend>Juegos de mobiliario entregados <span class="ayuda">(unidad de medida: juego)</span></legend>
         ${d.lineas.map((l, i) => html`<div class="form" style="margin:0 0 .4rem;align-items:end">
@@ -654,7 +649,7 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
       <label class="ancho">Descripción (opcional)<textarea value=${d.detalle} onInput=${set('detalle')} placeholder="Lo que indiquen las evidencias: p. ej. 22 juegos (22 mesas y 44 sillas) para 3.º y 4.º de primaria; macrodistrito Sur" /></label>
       <label class="ancho">Evidencia (acta de entrega, enlace o referencia)<input value=${d.evidencia} onInput=${set('evidencia')} /></label>
     </div>
-    ${!nueva && ctx.perfil.rol !== 'admin' && html`<${Aviso} tipo="info">Si la entrega ya fue validada hace menos de 72 horas, la corrección necesita un permiso del administrador.<//>`}
+    ${t._prop && html`<${Aviso} tipo="info">Esta entrega aún no fue validada: puede corregirla libremente.<//>`}
   <//>`;
 }
 
@@ -678,6 +673,11 @@ function EditarTarea({ t, p, ctx, onCerrar, onGuardado }) {
       fecha_inicio: d.fecha_inicio || null, peso: Number(d.peso), avance: Number(d.avance), estado: d.estado,
       evidencia: d.evidencia || null, observaciones: d.observaciones || null,
     };
+    if (t._prop) {
+      // Tarea pendiente de validación: se corrige la misma propuesta (sigue esperando validación)
+      const { error } = await sb.rpc('editar_propuesta', { p_id: t._prop, p_datos: { ...fila, fecha_fin_original: d.fecha_fin_original || null } });
+      return error ? setErr(mensajeError(error)) : onGuardado('Tarea corregida. Sigue pendiente de validación.');
+    }
     if (nueva) { fila.proyecto_id = p.id; fila.fecha_fin_original = d.fecha_fin_original || null; fila.fecha_fin_vigente = d.fecha_fin_original || null; }
     else if (!t.fecha_fin_original && d.fecha_fin_original) { fila.fecha_fin_original = d.fecha_fin_original; fila.fecha_fin_vigente = d.fecha_fin_original; }
     if (ctx.perfil.rol !== 'admin') {
@@ -704,8 +704,8 @@ function EditarTarea({ t, p, ctx, onCerrar, onGuardado }) {
       <label>Responsable<select value=${d.responsable_id || ''} onChange=${set('responsable_id')}><option value="">—</option>
         ${ctx.cat.personas.map(x => html`<option value=${x.id}>${x.nombre}</option>`)}</select></label>
       <label>Fecha de inicio<${FechaInput} valor=${d.fecha_inicio} onCambio=${v => setD(x => ({ ...x, fecha_inicio: v }))} /></label>
-      <label>Fecha de fin ${nueva || !t.fecha_fin_original ? '' : 'original'}<${FechaInput} valor=${d.fecha_fin_original} disabled=${!nueva && !!t.fecha_fin_original} onCambio=${v => setD(x => ({ ...x, fecha_fin_original: v }))} />
-        ${!nueva && t.fecha_fin_original && html`<span class="ayuda">Vigente: ${fecha(t.fecha_fin_vigente)}. Para cambiarla use «Reprogramar».</span>`}</label>
+      <label>Fecha de fin ${nueva || t._prop || !t.fecha_fin_original ? '' : 'original'}<${FechaInput} valor=${d.fecha_fin_original} disabled=${!nueva && !t._prop && !!t.fecha_fin_original} onCambio=${v => setD(x => ({ ...x, fecha_fin_original: v }))} />
+        ${!nueva && !t._prop && t.fecha_fin_original && html`<span class="ayuda">Vigente: ${fecha(t.fecha_fin_vigente)}. Para cambiarla use «Reprogramar».</span>`}</label>
       <label>Peso<input type="number" min="0" step="0.5" value=${d.peso} onInput=${set('peso')} /></label>
       <label>Avance (%)<input type="number" min="0" max="100" step="1" value=${d.avance} onInput=${set('avance')} /></label>
       <label>Estado<select value=${d.estado} onChange=${set('estado')}>${ESTADOS_EDITABLES.map(e => html`<option>${e}</option>`)}</select></label>
