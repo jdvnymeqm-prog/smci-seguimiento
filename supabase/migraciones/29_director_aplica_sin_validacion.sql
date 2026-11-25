@@ -1,0 +1,11 @@
+-- 29. El director o directora es la máxima autoridad de su dirección.
+--     · Valida lo del personal de las unidades sin jefe con cuenta activa (hoy toda la DICI: UCILU, UITD y
+--       Personal de la Dirección) — regla ya vigente desde la migración 23.
+--     · Lo que registra el propio director (crear proyectos, datos, tareas, reportes, evidencias, reprogramaciones)
+--       se aplica al instante, sin validación y sin el plazo de 72 h. Sigue pasando por proponer(): la propuesta
+--       queda «validada» con la nota «Registrado por la dirección: se aplica sin validación.» (bitácora completa).
+--     Implementación (aplicada con reemplazos sobre las funciones vigentes):
+--       proponer(): si es_director_de(v_dir) y no es admin → app.aplica_direccion = on → validar_propuesta(v_id, nota).
+--                   El plazo de 72 h no se aplica al director.
+--       validar_propuesta(): además de puede_revisar(), acepta app.aplica_direccion = on cuando la propuesta es del
+--                   propio director de esa dirección.

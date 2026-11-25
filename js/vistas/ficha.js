@@ -32,7 +32,10 @@ export function Ficha({ ctx, id }) {
     setApoyos(f.data.map(x => x.persona_id));
   }
   useEffect(() => { cargar(); }, [id]);
-  const listo = (msg) => { setOk(msg); setErr(''); cargar(); setTimeout(() => setOk(''), 4000); };
+  // El director es la máxima autoridad de su dirección: lo que registra se aplica sin validación
+  const listo = (msg) => {
+    if (perfil.rol === 'director' && /validaci/i.test(msg || '')) msg = 'Guardado. Como dirección, el registro se aplica sin validación y queda en la bitácora.';
+    setOk(msg); setErr(''); cargar(); setTimeout(() => setOk(''), 4000); };
   const fallo = (e) => { setErr(mensajeError(e)); setOk(''); };
 
   if (err && !p) return html`<${Aviso} tipo="error">${err}<//>`;
@@ -309,8 +312,9 @@ function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
       </div>
       <p class="ayuda">Sin avance manual, el avance es el promedio ponderado del avance de las tareas según su peso.</p>
     </div>`}
-    <div class="acciones" style="margin-top:1rem"><button class="prim" disabled=${ocupado} onClick=${guardar}>${ocupado ? 'Guardando…' : esAdmin ? 'Guardar cambios' : 'Guardar y enviar a validación'}</button>
-      ${!esAdmin && html`<span class="ayuda">Los cambios se aplican cuando el jefe de su unidad (o el director, si la unidad no tiene jefe) los valida.</span>`}</div>
+    <div class="acciones" style="margin-top:1rem"><button class="prim" disabled=${ocupado} onClick=${guardar}>${ocupado ? 'Guardando…' : esAdmin || perfil.rol === 'director' ? 'Guardar cambios' : 'Guardar y enviar a validación'}</button>
+      ${!esAdmin && html`<span class="ayuda">${perfil.rol === 'director' ? 'Como dirección, sus cambios se aplican sin validación y quedan registrados en la bitácora.'
+        : 'Los cambios se aplican cuando el jefe de su unidad (o el director, si la unidad no tiene jefe) los valida.'}</span>`}</div>
   </div>`;
 }
 
