@@ -773,7 +773,7 @@ function Reprogramaciones({ p, reprog }) {
 }
 
 // ---------------------------------------------------------------------
-function Historial({ p, reportes, editable, ctx, listo, fallo }) {
+function Historial({ p, reportes, editable, ctx, listo }) {
   const [abierto, setAbierto] = useState(false);
   const ref = useRef(null);
   const serie = Object.values(reportes.reduce((a, r) => { if (r.avance !== null) { const k = r.periodo; if (!a[k] || r.ficha === 'F-2') a[k] = { periodo: k, avance: Number(r.avance) }; } return a; }, {}))

@@ -198,7 +198,7 @@ function Actividad({ ctx }) {
   </div>`;
 }
 
-function HistorialUsuario({ u, desde, hasta, periodo, area, onVolver }) {
+function HistorialUsuario({ u, desde, hasta, periodo, area }) {
   const [filas, setFilas] = useState(null);
   const [err, setErr] = useState('');
   const [tipo, setTipo] = useState('');
