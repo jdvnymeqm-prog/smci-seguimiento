@@ -1,0 +1,11 @@
+-- 36. Puesta al día de información pasada, director con edición plena, revisión de proyectos sin unidad y envíos repetidos.
+--   · config.corte_carga = 2026-11-28: lo cargado en la app antes de esta fecha es «información pasada».
+--     config.corte_historico = 2026-11-01: reportes y tareas de meses hasta octubre también lo son.
+--     proponer(): corregir/eliminar proyectos, tareas y evidencias ya cargados, cargar reportes o tareas de meses pasados y
+--     subir respaldos marcados como «de un mes pasado» se aplican al instante (nota «Puesta al día de información pasada…»).
+--     Lo nuevo (proyectos, tareas, respaldos y reportes desde noviembre) se sigue validando. Eliminar un proyecto siempre se valida.
+--   · puede_editar_unidad(): el director siempre edita su dirección (ya no depende de perfiles.puede_editar).
+--   · puede_revisar_propuesta(unidad, dirección): propuestas de proyectos sin unidad las revisa el director de esa dirección;
+--     validar_propuesta() y rechazar_propuesta() la usan.
+--   · Nuevo tipo eliminar_proyecto (validar_propuesta lo aplica). Envíos idénticos pendientes se rechazan.
+--   · Limpieza (27/11/2026): 6 copias repetidas de «Fichas de estandarización que fortalecen el menú escolar» (USED, SMCI-17).
