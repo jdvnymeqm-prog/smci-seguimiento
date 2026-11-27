@@ -1,0 +1,9 @@
+-- 37. unir_proyectos(base, otros[], nombre, gestión): une proyectos que son el mismo pero se cargaron con otro código.
+--     El código más antiguo queda como principal y los demás en codigos_continuidad (se muestran debajo, en letra pequeña).
+--     Mueve tareas, evidencias, reprogramaciones, apoyos (el responsable del otro código pasa a apoyo), reportes
+--     (mismo mes y ficha: se unen conservando ambos textos) y propuestas pendientes, marcando el código de origen.
+--     Solo administrador / sistema. Aplicado el 27/11/2026:
+--       · SMCI-08 ← SMCI-20  «Mantenimiento de equipos informáticos y sistemas de videovigilancia (proyecto con continuidad)»
+--       · SMCI-06 ← SMCI-23  «Inspección y diagnóstico de infraestructura educativa (proyecto con continuidad)»
+--     (Antes: SMCI-10 ← SMCI-22, SMCI-35, SMCI-39 mobiliario; SMCI-09 ← SMCI-24 mochilas.)
+-- La definición completa está en la base de datos (public.unir_proyectos).
