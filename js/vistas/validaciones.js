@@ -1,13 +1,13 @@
 // Propuestas de cambio: las unidades proponen, el jefe de unidad valida (se aplica) o rechaza.
 // El director da su «visto bueno» a lo que validan sus jefes; valida él mismo su personal y las unidades sin jefe.
-// Lo validado queda cerrado; nueva información sobre el mismo dato después de 72 h,
-// o antes con un permiso de corrección del administrador.
+// Lo validado solo lo cambia el administrador, salvo durante el «periodo de actualización» (sin plazo de 72 h).
 import { html, useState, useEffect, sb, fecha, fechaHora, exportarExcel, mensajeError, bloqueoCambios, usePestana, codigoPrincipal, codigoTexto } from '../lib.js';
 import { Aviso, Modal } from '../componentes.js';
 
 export const TIPOS = {
   proyecto: 'Datos del proyecto', reprogramar_proyecto: 'Reprogramar entrega', crear_tarea: 'Nueva tarea', tarea: 'Cambio de tarea',
   reprogramar_tarea: 'Reprogramar tarea', reporte: 'Reporte mensual', evidencia: 'Evidencia', crear_proyecto: 'Nuevo proyecto',
+  eliminar_tarea: 'Eliminar tarea', editar_evidencia: 'Corregir evidencia', eliminar_evidencia: 'Eliminar evidencia',
 };
 export const CAMPOS = {
   nombre: 'Nombre', descripcion: 'Descripción', objetivo: 'Objetivo', estado: 'Estado', avance: 'Avance (%)', codigo: 'Código',
@@ -119,7 +119,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
                 <button class="prim" onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'validar', m }); }}>Validar</button>
                 <button class="peligro" onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'rechazar', m }); }}>Rechazar</button>`}
               ${m.estado === 'validada' && !m.visto_bueno_en && daVisto && (esAdmin || m.direccion_id === perfil.direccion_id) && html`<button class="prim" onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'visto', m }); }}>Dar visto bueno</button>`}
-              ${vista === 'validada' && esAdmin && m.entidad && html`<button onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'permiso', m }); }}>Permitir corrección</button>`}
+              ${false && m.entidad && html`<button onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'permiso', m }); }}>Permitir corrección</button>`}
             </div></td></tr>
           ${abierta === m.id && html`<tr><td colspan=${ncol} style="background:#fbfcfc"><${Resumen} m=${m} cat=${cat} /></td></tr>`}`)}
         </tbody></table></div>`}
@@ -131,9 +131,9 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
       <${Resumen} m=${accion.m} cat=${cat} />
       <div class="form" style="margin-top:1rem"><label class="ancho">${accion.tipo === 'rechazar' ? 'Motivo del rechazo (obligatorio)' : accion.tipo === 'permiso' ? 'Motivo de la corrección (opcional)' : 'Observación (opcional)'}
         <textarea value=${texto} onInput=${e => setTexto(e.target.value)} /></label></div>
-      ${accion.tipo === 'visto' && html`<${Aviso} tipo="info">El visto bueno confirma la validación del jefe de unidad. No cambia los datos. Si encuentra un error, pida al Encargado de Planificación un permiso de corrección.<//>`}
+      ${accion.tipo === 'visto' && html`<${Aviso} tipo="info">El visto bueno confirma la validación del jefe de unidad. No cambia los datos. Si encuentra un error, pida la corrección al Encargado de Planificación.<//>`}
       ${accion.tipo === 'validar' && accion.m.tipo === 'proyecto' && (accion.m.resumen || []).some(c => c.campo === 'estado' && c.ahora === 'Concluida') && html`<${Aviso} tipo="info">Se propone «Concluida». Si el proyecto aún no tiene 100 % de avance y al menos una evidencia, se validan los demás datos y el estado se mantiene; la unidad podrá volver a proponer «Concluida» cuando cumpla.<//>`}
-      ${accion.tipo === 'validar' && html`<${Aviso} tipo="atencion">Al validar, el cambio se aplica y queda cerrado. Solo el administrador podrá modificarlo o dar permiso de corrección.<//>`}
+      ${accion.tipo === 'validar' && html`<${Aviso} tipo="atencion">Al validar, el cambio se aplica. Después solo el administrador podrá modificarlo (salvo durante el periodo de actualización).<//>`}
       ${accion.tipo === 'permiso' && html`<${Aviso} tipo="info">La unidad podrá enviar una corrección de este dato sin esperar las 72 horas. El permiso sirve una vez y vence en 7 días. La corrección también la valida el jefe de unidad (o el director, si la unidad no tiene jefe).<//>`}
     <//>`}`;
 }
@@ -147,6 +147,6 @@ export function Validaciones({ ctx }) {
     <div class="encabezado"><div><h1>Validaciones</h1>
       <p>${perfil.rol === 'admin' ? 'Todas las direcciones, unidades y el personal del Despacho de la Secretaría: como Encargado de Planificación usted revisa y valida todo.' : perfil.rol === 'director'
         ? (sinJefe.length ? `Usted valida los cambios de: ${sinJefe.map(u => u.sigla).join(', ')} (su personal de la dirección y las unidades sin jefe con cuenta activa). Las unidades con jefe las valida su jefe y usted da el visto bueno en la pestaña «Visto bueno pendiente».` : 'Todas las unidades de su dirección tienen jefe: ellos validan y usted da el visto bueno en la pestaña «Visto bueno pendiente».')
-        : 'Cambios propuestos en su unidad.'} Ningún cambio de una unidad se aplica hasta que su jefe (o el director, si la unidad no tiene jefe) lo valida. Lo validado queda cerrado: nueva información sobre el mismo dato se puede proponer pasadas 72 horas, o antes con permiso del administrador.</p></div></div>
+        : 'Cambios propuestos en su unidad.'} Ningún cambio de una unidad se aplica hasta que su jefe (o el director, si la unidad no tiene jefe) lo valida. Lo pendiente lo puede corregir o eliminar quien lo registró. Lo validado solo lo modifica el administrador, salvo durante el periodo de actualización.</p></div></div>
     <${ListaPropuestas} ctx=${ctx} />`;
 }

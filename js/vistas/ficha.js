@@ -290,6 +290,7 @@ function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
       ${esAdmin ? html`<label>Unidad<select value=${d.unidad_id || ''} onChange=${e => { const u = cat.unidades.find(x => x.id === e.target.value); setD({ ...d, unidad_id: e.target.value || null, direccion_id: u ? u.direccion_id : d.direccion_id }); }}>
           <option value="">Por validar (sin unidad)</option>${cat.unidades.map(u => html`<option value=${u.id}>${u.sigla}</option>`)}</select></label>`
         : html`<label>Unidad<input disabled value=${unidad ? unidad.sigla : 'Por validar'} /></label>`}
+      ${!esAdmin && perfil.rol !== 'director' && !cat.config.periodo_actualizacion?.activo && html`<div class="ancho"><${Aviso} tipo="info">🔒 Periodo de actualización cerrado: en los datos ya validados solo puede completar los que están vacíos. Para corregir otros, pida al administrador que abra el periodo.<//></div>`}
       ${!puedeCambiarResp && html`<div class="ancho"><${Aviso} tipo="info">👥 La modificación de responsables está desactivada en ${p.direccion_sigla}. Si hay que reasignar este proyecto, solicítelo al administrador.<//></div>`}
       <label>Responsable principal<select value=${d.responsable_id || ''} disabled=${!puedeCambiarResp} onChange=${set('responsable_id')}>
         <option value="">Sin responsable</option>${personas.map(x => html`<option value=${x.id}>${x.nombre}</option>`)}</select>
@@ -371,7 +372,15 @@ function Tareas({ p, tareas: validadas, pendientes = [], editable, ctx, listo, f
   // En el proyecto de mobiliario los productos (entregas) van en su propia tabla; aquí quedan las demás tareas
   const tareas = p.meta_productos ? todas.filter(t => t.tipo !== 'Producto') : todas;
   // Editar o eliminar: la tarea pendiente, quien la registró (o el administrador); la validada, solo el administrador (o la dirección)
-  const puedeTocar = t => t._prop ? (perfil.rol === 'admin' || t._autor === perfil.id) : (perfil.rol === 'admin' || perfil.rol === 'director');
+  // Durante el periodo de actualización, todos pueden proponer editar o eliminar lo validado
+  const periodo = !!ctx.cat.config.periodo_actualizacion?.activo;
+  const puedeTocar = t => t._prop ? (perfil.rol === 'admin' || t._autor === perfil.id) : (perfil.rol === 'admin' || perfil.rol === 'director' || (periodo && editable));
+  async function eliminarValidada(t) {
+    if (perfil.rol === 'admin') return borrar(t);
+    if (!confirm(`¿Proponer eliminar la tarea «${t.nombre}»? Se eliminará cuando lo valide su jefe de unidad.`)) return;
+    const { error } = await sb.rpc('proponer', { p_tipo: 'eliminar_tarea', p_proyecto: p.id, p_registro: t.id, p_datos: {}, p_motivo: null });
+    error ? fallo(error) : listo('Eliminación enviada a validación.');
+  }
   async function retirar(t) {
     if (!confirm(`¿Eliminar la tarea «${t.nombre}»? Aún no fue validada, así que se descarta.`)) return;
     const { error } = await sb.rpc('retirar_propuesta', { p_id: t._prop });
@@ -384,7 +393,7 @@ function Tareas({ p, tareas: validadas, pendientes = [], editable, ctx, listo, f
     error ? fallo(error) : listo('Tarea eliminada.');
   }
   return html`
-    ${p.meta_productos && html`<${Entregas} p=${p} tareas=${todas} editable=${editable} ctx=${ctx} listo=${listo} fallo=${fallo} puedeTocar=${puedeTocar} retirar=${retirar} />`}
+    ${p.meta_productos && html`<${Entregas} p=${p} tareas=${todas} editable=${editable} ctx=${ctx} listo=${listo} fallo=${fallo} puedeTocar=${puedeTocar} retirar=${retirar} eliminarValidada=${eliminarValidada} />`}
     <div class="panel"><h3>Línea de tiempo</h3><${Gantt} tareas=${todas.filter(t => !t._prop)} p=${p} />
       ${p.meta_productos && html`<p class="ayuda">Incluye las entregas de ${queSeEntrega(p)} con su fecha de entrega.</p>`}</div>
     <div class="panel">
@@ -412,7 +421,7 @@ function Tareas({ p, tareas: validadas, pendientes = [], editable, ctx, listo, f
                 const { error } = await sb.rpc('proponer', { p_tipo: 'reprogramar_tarea', p_proyecto: p.id, p_registro: t.id, p_datos: { fecha: f }, p_motivo: m });
                 if (error) throw error; listo('Reprogramación enviada a validación. Se aplicará cuando la valide.'); }} />
             `}
-            ${!t._prop && ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => borrar(t)}>Eliminar</button>`}</div></td>`}
+            ${!t._prop && puedeTocar(t) && html`<button class="peligro" onClick=${() => eliminarValidada(t)}>Eliminar</button>`}</div></td>`}
         </tr>`)}</tbody></table>
         ${!tareas.length && html`<div class="vacio">Sin tareas. ${editable ? 'Agregue la primera.' : ''}</div>`}</div>
     </div>
@@ -481,7 +490,7 @@ const queSeEntrega = p => unidadDe(p).replace(/^juegos de /, '');      // «mobi
 
 // Pestaña Tareas del proyecto de mobiliario: cada entrega es un producto (unidad educativa + juegos por nivel).
 // Los datos que falten quedan como casillas libres para llenar; al final, totales por nivel, U.E. atendidas y % sobre el total.
-function Entregas({ p, tareas, editable, ctx, listo, fallo, puedeTocar = () => false, retirar }) {
+function Entregas({ p, tareas, editable, ctx, listo, fallo, puedeTocar = () => false, retirar, eliminarValidada: proponerEliminar }) {
   const [form, setForm] = useState(null);          // {} = nueva entrega; tarea = corregir
   const [pend, setPend] = useState(0);
   useEffect(() => {
@@ -502,6 +511,7 @@ function Entregas({ p, tareas, editable, ctx, listo, fallo, puedeTocar = () => f
   const pct = (a, b) => b ? Math.round(1000 * a / b) / 10 : 0;
   const nombreTipo = k => (TIPOS_CENTRO.find(x => x[0] === k) || [k, k])[1];
   async function eliminarValidada(t) {
+    if (ctx.perfil.rol !== 'admin') return proponerEliminar(t);
     if (!confirm(`¿Eliminar la entrega «${t.nombre}»? Ya fue validada; quedará registrado en la bitácora y los totales se recalcularán.`)) return;
     const { error } = await sb.from('tareas').delete().eq('id', t.id).select('id').single();
     error ? fallo(error) : listo('Entrega eliminada. Los totales y el avance se recalcularon.');
@@ -529,7 +539,7 @@ function Entregas({ p, tareas, editable, ctx, listo, fallo, puedeTocar = () => f
           <td class="ayuda">${c(t, 'evidencia', t.evidencia, { tipo: 'text' })}</td>
           ${editable && html`<td class="nowrap">${puedeTocar(t) ? html`<div class="acciones"><button onClick=${() => setForm(t)}>Editar</button>
               ${t._prop && html`<button class="peligro" onClick=${() => retirar(t)}>Eliminar</button>`}
-              ${!t._prop && ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => eliminarValidada(t)}>Eliminar</button>`}</div>`
+              ${!t._prop && html`<button class="peligro" onClick=${() => eliminarValidada(t)}>Eliminar</button>`}</div>`
             : html`<span class="ayuda" title="Entrega validada: para cambiarla o eliminarla consulte al administrador">🔒 Validada</span>`}</td>`}</tr>`)}</tbody>
       <tfoot><tr class="total"><td colspan="5"><b>Total ${unidadDe(p)} por nivel</b></td>
           ${NIVELES.map(n => html`<td class="num"><b>${totNivel(n)}</b></td>`)}
@@ -846,6 +856,30 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
     const { data, error } = await sb.storage.from('evidencias').createSignedUrl(ev.storage_path, 300);
     error ? fallo(error) : window.open(data.signedUrl, '_blank', 'noopener');
   }
+  const periodo = !!ctx.cat.config.periodo_actualizacion?.activo;
+  const director = ctx.perfil.rol === 'director';
+  const puedeTocar = editable && (esAdmin || director || periodo);
+  async function corregir(ev) {
+    const n = prompt('Nombre de la evidencia:', ev.nombre || '');
+    if (n === null) return;
+    const cambios = {};
+    if (n.trim() && n.trim() !== ev.nombre) cambios.nombre = n.trim();
+    if (ev.tipo === 'enlace') {
+      const u = prompt('Enlace (URL):', ev.url || '');
+      if (u === null) return;
+      if (u.trim() && u.trim() !== ev.url) { if (!/^https?:\/\//i.test(u.trim())) return fallo({ message: 'El enlace debe empezar con http:// o https://' }); cambios.url = u.trim(); }
+    }
+    if (!Object.keys(cambios).length) return;
+    const { error } = esAdmin ? await sb.from('evidencias').update(cambios).eq('id', ev.id).select('id').single()
+      : await sb.rpc('proponer', { p_tipo: 'editar_evidencia', p_proyecto: p.id, p_registro: ev.id, p_datos: { cambios }, p_motivo: null });
+    error ? fallo(error) : listo(esAdmin ? 'Evidencia corregida.' : 'Corrección de la evidencia enviada a validación.');
+  }
+  async function quitar(ev) {
+    if (esAdmin) return borrar(ev);
+    if (!confirm(`¿Proponer eliminar la evidencia «${ev.nombre}»? Se eliminará cuando lo validen.`)) return;
+    const { error } = await sb.rpc('proponer', { p_tipo: 'eliminar_evidencia', p_proyecto: p.id, p_registro: ev.id, p_datos: {}, p_motivo: null });
+    error ? fallo(error) : listo('Eliminación de la evidencia enviada a validación.');
+  }
   async function borrar(ev) {
     if (!confirm(`¿Quitar la evidencia «${ev.nombre}»?`)) return;
     if (ev.storage_path) await sb.storage.from('evidencias').remove([ev.storage_path]);
@@ -863,7 +897,8 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
       <tbody>${evid.map(ev => html`<tr><td>${ev.nombre}</td><td>${{ archivo: 'Archivo', enlace: 'Enlace', referencia: 'Referencia (carga inicial)' }[ev.tipo]}</td>
         <td class="nowrap">${fechaHora(ev.creado_en)}</td>
         <td class="nowrap"><div class="acciones">${ev.tipo !== 'referencia' && html`<button onClick=${() => abrir(ev)}>Abrir</button>`}
-          ${esAdmin && html`<button class="peligro" onClick=${() => borrar(ev)}>Quitar</button>`}</div></td></tr>`)}</tbody></table>
+          ${puedeTocar && html`<button onClick=${() => corregir(ev)}>Editar</button><button class="peligro" onClick=${() => quitar(ev)}>Eliminar</button>`}
+          ${editable && !puedeTocar && html`<span class="ayuda" title="Evidencia validada: la corrige el administrador o durante el periodo de actualización">🔒</span>`}</div></td></tr>`)}</tbody></table>
       ${!evid.length && html`<div class="vacio">Sin evidencias. «Concluida» exige al menos una.</div>`}</div></div>`;
 }
 

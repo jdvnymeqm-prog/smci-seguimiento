@@ -360,6 +360,15 @@ function EditarEstructura({ e, D, onCerrar, onGuardar }) {
 // Bloqueo general: mientras está activo, nadie salvo el administrador propone, valida ni sube evidencias
 function Bloqueo({ ctx }) {
   const { cat, recargar } = ctx;
+  const periodo = cat.config.periodo_actualizacion || { activo: false };
+  async function cambiarPeriodo(activo) {
+    if (!confirm(activo ? '¿Abrir el periodo de actualización? Todos podrán proponer correcciones, eliminaciones y mejoras de redacción de lo ya validado (proyectos, tareas y evidencias). Se siguen validando.'
+      : '¿Cerrar el periodo de actualización? Lo validado solo lo podrá modificar o eliminar el administrador (y la dirección); el personal solo completará datos vacíos.')) return;
+    const valor = { activo, desde: activo ? new Date().toISOString() : null, por: activo ? (ctx.perfil.nombre || 'Administrador') : null };
+    const { error } = await sb.from('config').upsert({ clave: 'periodo_actualizacion', valor }).select('clave').single();
+    if (error) return setMsg({ err: mensajeError(error) });
+    setMsg({ ok: activo ? 'Periodo de actualización abierto.' : 'Periodo de actualización cerrado: lo validado queda en manos del administrador.' }); recargar();
+  }
   const actual = cat.config.bloqueo_cambios || { activo: false };
   const [motivo, setMotivo] = useState(actual.motivo || '');
   const [msg, setMsg] = useState({});
@@ -372,6 +381,16 @@ function Bloqueo({ ctx }) {
   }
   return html`<div class="panel">
     <${Aviso} tipo="ok">${msg.ok}<//><${Aviso} tipo="error">${msg.err}<//>
+    <h3>Periodo de actualización</h3>
+    <p class="ayuda">Abierto: todos pueden proponer editar, mejorar la redacción o eliminar lo ya validado (proyectos, tareas y evidencias); los cambios se siguen validando.
+      Cerrado: lo validado solo lo modifica o elimina el administrador (y la dirección); el personal puede crear lo nuevo y completar datos vacíos.
+      En ambos casos, lo pendiente de validación lo puede corregir o eliminar quien lo registró, y ya no existe el plazo de 72 horas.</p>
+    <p>Estado actual: ${periodo.activo
+      ? html`<b style="color:#1e7d32">🛠 Abierto</b>${periodo.desde ? ' desde el ' + fechaHora(periodo.desde) : ''}${periodo.por ? ' · ' + periodo.por : ''}`
+      : html`<b>🔒 Cerrado</b>`}</p>
+    ${periodo.activo ? html`<button class="peligro" onClick=${() => cambiarPeriodo(false)}>🔒 Cerrar periodo de actualización</button>`
+      : html`<button class="prim" onClick=${() => cambiarPeriodo(true)}>🛠 Abrir periodo de actualización</button>`}
+    <hr style="margin:1.25rem 0" />
     <h3>Bloqueo de cambios</h3>
     <p class="ayuda">Mientras el bloqueo esté activo, nadie excepto el administrador puede proponer cambios, validarlos o rechazarlos, ni subir evidencias. Todos pueden seguir consultando la información. Úselo, por ejemplo, durante un cierre de gestión o una revisión.</p>
     <p>Estado actual: ${actual.activo
