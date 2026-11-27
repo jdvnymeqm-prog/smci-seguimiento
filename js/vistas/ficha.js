@@ -38,9 +38,14 @@ export function Ficha({ ctx, id }) {
   }
   useEffect(() => { cargar(); }, [id]);
   // El director es la máxima autoridad de su dirección: lo que registra se aplica sin validación
-  const listo = (msg) => {
+  const listo = async (msg) => {
     if (perfil.rol === 'director' && /validaci/i.test(msg || '')) msg = 'Guardado. Como dirección, el registro se aplica sin validación y queda en la bitácora.';
-    setOk(msg); setErr(''); cargar(); setTimeout(() => setOk(''), 4000); };
+    else if (/validaci/i.test(msg || '') && perfil.rol !== 'admin') {
+      // Puesta al día: corregir información pasada se aplica al instante (la base lo decide)
+      const { data } = await sb.from('propuestas').select('estado,observacion').eq('creado_por', perfil.id).order('id', { ascending: false }).limit(1).maybeSingle();
+      if (data?.estado === 'validada' && /^Puesta al día/.test(data.observacion || '')) msg = 'Guardado. Es información pasada (puesta al día): se aplicó sin validación y queda en la bitácora.';
+    }
+    setOk(msg); setErr(''); cargar(); setTimeout(() => setOk(''), 5000); };
   const fallo = (e) => { setErr(mensajeError(e)); setOk(''); };
 
   if (err && !p) return html`<${Aviso} tipo="error">${err}<//>`;
@@ -48,6 +53,14 @@ export function Ficha({ ctx, id }) {
   // Con el bloqueo general activo, solo el administrador edita
   const editable = puedeEditar(perfil, p.unidad_id, p.direccion_id) && !bloqueoCambios(cat, perfil);
   const h = { p, tareas, pendientes, reprog, reportes, evid, apoyos, editable, ctx, listo, fallo, recargar: cargar };
+  async function eliminarProyecto() {
+    const directo = perfil.rol === 'admin' || perfil.rol === 'director';
+    if (!confirm(directo ? `¿Eliminar el proyecto ${p.codigo} «${p.nombre}» con todas sus tareas, reportes y evidencias? No se puede deshacer (queda en la bitácora).`
+      : `¿Proponer eliminar el proyecto ${p.codigo} «${p.nombre}»? Se eliminará con sus tareas, reportes y evidencias cuando lo valide su jefe de unidad o el director.`)) return;
+    const { error } = await sb.rpc('proponer', { p_tipo: 'eliminar_proyecto', p_proyecto: p.id, p_registro: null, p_datos: {}, p_motivo: null });
+    if (error) return fallo(error);
+    if (directo) { alert('Proyecto eliminado.'); location.hash = '#/proyectos'; } else listo('Eliminación del proyecto enviada a validación.');
+  }
 
   const tabs = [
     ['datos', 'Datos generales'], ['tareas', `Tareas (${tareas.length}${pendientes.length ? ' + ' + pendientes.length + ' por validar' : ''})`],
@@ -87,6 +100,7 @@ export function Ficha({ ctx, id }) {
                    if (error) throw error; listo('Reprogramación enviada a validación. Se aplicará cuando la valide.'); }} />`
               : html`<span class="lectura">🔒 ${bloqueoCambios(cat, perfil) ? 'Cambios bloqueados por el administrador' : perfil.rol === 'director' ? 'Su dirección tiene acceso de revisión y consulta' : 'Solo lectura'}</span>`}
             <button onClick=${() => exportarFichaPDF(h)}>Ficha PDF</button>
+            ${editable && (perfil.rol === 'admin' || perfil.rol === 'director' || cat.config.periodo_actualizacion?.activo) && html`<button class="peligro" onClick=${eliminarProyecto}>Eliminar proyecto</button>`}
           </div>
         </div>
       </div>
@@ -614,7 +628,9 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
   d.lineas.forEach(l => { const v = entero(l.juegos); if (l.nivel && v) niv[l.nivel] = (niv[l.nivel] || 0) + v; });
   const total = d.lineas.reduce((a, l) => a + (entero(l.juegos) || 0), 0);
   const linea = (i, k, v) => setD(x => ({ ...x, lineas: x.lineas.map((l, j) => j === i ? { ...l, [k]: v } : l) }));
-  async function guardar() {
+  const enCurso = useRef(false);   // evita guardar dos veces el mismo registro (doble clic)
+  async function guardar() { if (enCurso.current) return; enCurso.current = true; try { return await guardar0(); } finally { enCurso.current = false; } }
+  async function guardar0() {
     if (!d.nombre.trim()) return setErr('Escriba el nombre del centro educativo.');
     if (!d.tipo_centro) return setErr('Elija la categoría de la unidad educativa (fiscal, de convenio, especial o alternativa).');
     if (!d.fecha) return setErr('Indique la fecha de entrega.');
@@ -687,7 +703,9 @@ function EditarTarea({ t, p, ctx, onCerrar, onGuardado }) {
   const [d, setD] = useState({ tipo: 'Tarea', peso: 1, avance: 0, estado: 'No iniciada', ...t });
   const [err, setErr] = useState('');
   const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
-  async function guardar() {
+  const enCurso = useRef(false);   // evita guardar dos veces el mismo registro (doble clic)
+  async function guardar() { if (enCurso.current) return; enCurso.current = true; try { return await guardar0(); } finally { enCurso.current = false; } }
+  async function guardar0() {
     if (!(d.nombre || '').trim()) return setErr('El nombre es obligatorio.');
     const fila = {
       nombre: d.nombre.trim(), tipo: d.tipo, codigo: d.codigo || null, responsable_id: d.responsable_id || null,
@@ -788,7 +806,9 @@ function NuevoReporte({ p, ctx, onCerrar, onGuardado }) {
   const [err, setErr] = useState('');
   const set = k => e => { const v = e.target.value; setD(x => ({ ...x, [k]: v })); };
   const prev = (() => { const [y, m] = mesActualISO().split('-').map(Number); return m === 1 ? `${y - 1}-12-01` : `${y}-${String(m - 1).padStart(2, '0')}-01`; })();
-  async function guardar() {
+  const enCurso = useRef(false);   // evita guardar dos veces el mismo registro (doble clic)
+  async function guardar() { if (enCurso.current) return; enCurso.current = true; try { return await guardar0(); } finally { enCurso.current = false; } }
+  async function guardar0() {
     if (!(d.problema_resultado || '').trim() && !(d.resultado_cuantitativo || '').trim()) return setErr('Indique al menos el avance o resultado del mes.');
     const fila = {
       periodo: d.periodo, ficha: d.ficha, avance: Number(d.avance), estado: d.estado,
@@ -830,9 +850,15 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
   const [nombre, setNombre] = useState('');
   const [url, setUrl] = useState('');
   const [subiendo, setSubiendo] = useState(false);
+  const [historico, setHistorico] = useState(false);   // respaldo de un mes pasado: se agrega sin validación
+  const enCurso = useRef(false);
   async function enlace() {
+    if (enCurso.current) return; enCurso.current = true;
+    try { await enlace0(); } finally { enCurso.current = false; }
+  }
+  async function enlace0() {
     if (!nombre.trim() || !/^https?:\/\//i.test(url.trim())) return fallo({ message: 'Indique un nombre y un enlace que empiece con http:// o https://' });
-    const fila = { tipo: 'enlace', nombre: nombre.trim(), url: url.trim() };
+    const fila = { tipo: 'enlace', nombre: nombre.trim(), url: url.trim(), ...(historico ? { historico: true } : {}) };
     const { error } = esAdmin ? await sb.from('evidencias').insert({ proyecto_id: p.id, ...fila })
       : await sb.rpc('proponer', { p_tipo: 'evidencia', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
     if (error) return fallo(error);
@@ -845,7 +871,7 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
     const ruta = `${p.id}/${Date.now()}_${f.name.replace(/[^\w.\-]+/g, '_')}`;
     const up = await sb.storage.from('evidencias').upload(ruta, f);
     if (up.error) { setSubiendo(false); return fallo(up.error); }
-    const fila = { tipo: 'archivo', nombre: f.name, storage_path: ruta };
+    const fila = { tipo: 'archivo', nombre: f.name, storage_path: ruta, ...(historico ? { historico: true } : {}) };
     const { error } = esAdmin ? await sb.from('evidencias').insert({ proyecto_id: p.id, ...fila })
       : await sb.rpc('proponer', { p_tipo: 'evidencia', p_proyecto: p.id, p_registro: null, p_datos: fila, p_motivo: null });
     setSubiendo(false); e.target.value = '';
@@ -892,7 +918,9 @@ function Evidencias({ p, evid, editable, ctx, listo, fallo }) {
       <label>Subir archivo (máx. 25 MB)<input type="file" disabled=${subiendo} onChange=${archivo} /></label>
       <label>Nombre del enlace<input value=${nombre} onInput=${e => setNombre(e.target.value)} /></label>
       <label>Enlace (URL)<input value=${url} onInput=${e => setUrl(e.target.value)} placeholder="https://" /></label>
-      <button onClick=${enlace}>Agregar enlace</button></div>`}
+      <button onClick=${enlace}>Agregar enlace</button>
+      ${!esAdmin && html`<label class="ancho" style="flex-direction:row;align-items:center;gap:.4rem"><input type="checkbox" style="width:auto" checked=${historico} onChange=${e => setHistorico(e.target.checked)} />
+        Es un respaldo de un mes pasado (hasta octubre de 2026): se agrega sin validación, como puesta al día</label>`}</div>`}
     <div class="tabla-env"><table><thead><tr><th>Evidencia</th><th>Tipo</th><th>Registrada</th><th></th></tr></thead>
       <tbody>${evid.map(ev => html`<tr><td>${ev.nombre}</td><td>${{ archivo: 'Archivo', enlace: 'Enlace', referencia: 'Referencia (carga inicial)' }[ev.tipo]}</td>
         <td class="nowrap">${fechaHora(ev.creado_en)}</td>

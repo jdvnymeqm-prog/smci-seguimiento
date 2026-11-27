@@ -7,7 +7,7 @@ import { Aviso, Modal } from '../componentes.js';
 export const TIPOS = {
   proyecto: 'Datos del proyecto', reprogramar_proyecto: 'Reprogramar entrega', crear_tarea: 'Nueva tarea', tarea: 'Cambio de tarea',
   reprogramar_tarea: 'Reprogramar tarea', reporte: 'Reporte mensual', evidencia: 'Evidencia', crear_proyecto: 'Nuevo proyecto',
-  eliminar_tarea: 'Eliminar tarea', editar_evidencia: 'Corregir evidencia', eliminar_evidencia: 'Eliminar evidencia',
+  eliminar_tarea: 'Eliminar tarea', eliminar_proyecto: 'Eliminar proyecto', editar_evidencia: 'Corregir evidencia', eliminar_evidencia: 'Eliminar evidencia',
 };
 export const CAMPOS = {
   nombre: 'Nombre', descripcion: 'Descripción', objetivo: 'Objetivo', estado: 'Estado', avance: 'Avance (%)', codigo: 'Código',
@@ -57,7 +57,9 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   // Qué unidades valida este usuario: lo decide la base (jefe con cuenta activa o, si no hay, el director)
   const [valido, setValido] = useState(null);
   useEffect(() => { sb.rpc('unidades_que_valido').then(({ data }) => setValido(new Set((data || []).map(x => x.unidades_que_valido || x)))); }, []);
-  const puedeRevisar = m => !bloqueoCambios(cat, perfil) && (esAdmin || !!valido?.has(m.unidad_id));
+  // Proyectos sin unidad: los revisa el director de su dirección (o el administrador)
+  const puedeRevisar = m => !bloqueoCambios(cat, perfil) && (esAdmin || (m.unidad_id ? !!valido?.has(m.unidad_id)
+    : esDirector && m.direccion_id === perfil.direccion_id && !(cat.todasDirecciones || []).find(d => d.id === m.direccion_id)?.es_despacho_secretaria));
 
   const cargar = () => {
     let q = sb.from('propuestas').select('*, proyectos(codigo,codigo_estrategico,nombre)').eq('estado', vista === 'visto' ? 'validada' : vista);

@@ -161,7 +161,8 @@ export function puedeEditar(perfil, unidadId, direccionId) {
   if ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && unidadId && perfil.unidad_id === unidadId) return true;
   // Edición abierta temporal en la dirección: todo su personal propone cambios en todas sus unidades
   if ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.edicion_abierta && direccionId && perfil.direccion_id === direccionId) return true;
-  if (perfil.rol === 'director' && perfil.puede_editar && direccionId && perfil.direccion_id === direccionId) return true;
+  // El director es la máxima autoridad de su dirección: siempre puede crear y editar en ella
+  if (perfil.rol === 'director' && direccionId && perfil.direccion_id === direccionId) return true;
   return false;
 }
 

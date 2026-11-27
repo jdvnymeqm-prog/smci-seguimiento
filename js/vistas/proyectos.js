@@ -23,7 +23,7 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
   const filtrada = todos.filter(p => esEst ? !!p.codigo_estrategico : !p.codigo_estrategico);
   const nEst = lista ? lista.filter(p => p.codigo_estrategico).length : 0;
   const puedeCrear = !bloqueoCambios(cat, perfil) && (perfil.rol === 'admin' || ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.unidad_id)
-    || (perfil.rol === 'director' && perfil.puede_editar));
+    || perfil.rol === 'director');
 
   if (err) return html`<${Aviso} tipo="error">${err}<//>`;
   if (!lista) return html`<div class="vacio">Cargando proyectos…</div>`;

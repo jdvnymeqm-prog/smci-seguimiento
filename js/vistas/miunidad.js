@@ -54,7 +54,7 @@ export function MiUnidad({ ctx }) {
     <div class="encabezado"><div>
       <h1 style=${'border-left:6px solid ' + colorDir(direccion?.sigla).fuerte + ';padding-left:.6rem'}>${esDirector ? 'Mi dirección' : 'Mi unidad'}: ${esDirector ? direccion?.sigla : unidad?.sigla}</h1>
       <p>${esDirector ? direccion?.nombre : unidad?.nombre} · ${ps.length} proyectos</p></div></div>
-    ${esDirector && !perfil.puede_editar && html`<${Aviso} tipo="info">Puede ver todos los proyectos de su dirección. Para editar, el administrador debe habilitarlo.<//>`}
+
     <div class="rejilla kpis" style="margin-bottom:1rem">
       <div class="kpi ${porActualizar.length ? (dCorte < 0 ? 'alerta' : 'aviso') : ''}"><div class="v">${porActualizar.length}</div><div class="t">Por actualizar en ${nombreMes(mesActualISO())}</div></div>
       <div class="kpi"><div class="v">${dCorte >= 0 ? dCorte : 0}</div><div class="t">Días para el corte (${fecha(fechaCorte)})</div></div>
