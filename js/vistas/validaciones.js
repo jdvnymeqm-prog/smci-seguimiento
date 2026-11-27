@@ -128,7 +128,6 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
                 <button class="prim" onClick=${() => { setTexto(''); setMsg({}); setErrModal(''); setAccion({ tipo: 'validar', m }); }}>Validar</button>
                 <button class="peligro" onClick=${() => { setTexto(''); setMsg({}); setErrModal(''); setAccion({ tipo: 'rechazar', m }); }}>Rechazar</button>`}
               ${m.estado === 'validada' && !m.visto_bueno_en && daVisto && (esAdmin || m.direccion_id === perfil.direccion_id) && html`<button class="prim" onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'visto', m }); }}>Dar visto bueno</button>`}
-              ${false && m.entidad && html`<button onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'permiso', m }); }}>Permitir corrección</button>`}
             </div></td></tr>
           ${abierta === m.id && html`<tr><td colspan=${ncol} style="background:#fbfcfc"><${Resumen} m=${m} cat=${cat} /></td></tr>`}`)}
         </tbody></table></div>`}

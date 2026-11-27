@@ -1,5 +1,5 @@
 import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir } from '../lib.js';
-import { Estado, EstadoProyecto, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, CodigoContinuidad, LeyendaDirecciones } from '../componentes.js';
+import { EstadoProyecto, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, CodigoContinuidad, LeyendaDirecciones } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
 export function ListaProyectos({ ctx, modo = 'otros' }) {
