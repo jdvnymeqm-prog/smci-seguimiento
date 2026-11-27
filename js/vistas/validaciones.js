@@ -71,15 +71,22 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   };
   useEffect(() => { setLista(null); cargar(); }, [vista, proyectoId]);
 
+  const [errModal, setErrModal] = useState('');
+  const [enviando, setEnviando] = useState(false);
   async function confirmar() {
+    if (enviando) return;
+    setEnviando(true); setErrModal('');
+    try { await confirmar0(); } finally { setEnviando(false); }
+  }
+  async function confirmar0() {
     const { tipo, m } = accion;
     let r;
     if (tipo === 'validar') r = await sb.rpc('validar_propuesta', { p_id: m.id, p_observacion: texto || null });
-    if (tipo === 'rechazar') { if (!texto.trim()) return setMsg({ err: 'Indique el motivo del rechazo.' }); r = await sb.rpc('rechazar_propuesta', { p_id: m.id, p_motivo: texto }); }
+    if (tipo === 'rechazar') { if (!texto.trim()) return setErrModal('Escriba el motivo del rechazo (es obligatorio) y vuelva a pulsar «Rechazar».'); r = await sb.rpc('rechazar_propuesta', { p_id: m.id, p_motivo: texto }); }
     if (tipo === 'permiso') r = await sb.rpc('otorgar_permiso', { p_propuesta: m.id, p_motivo: texto || null });
     if (tipo === 'visto') r = await sb.rpc('dar_visto_bueno', { p_id: m.id, p_observacion: texto || null });
-    if (r.error) return setMsg({ err: mensajeError(r.error) });
-    setAccion(null); setTexto('');
+    if (r.error) return setErrModal(mensajeError(r.error));
+    setAccion(null); setTexto(''); setErrModal('');
     let ok = { validar: 'Validada: el cambio ya se aplicó y queda cerrado.', rechazar: 'Propuesta rechazada.',
       permiso: 'Permiso de corrección otorgado: la unidad puede enviar una corrección (vence en 7 días).', visto: 'Visto bueno registrado.' }[tipo];
     if (tipo === 'validar') {
@@ -118,20 +125,21 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
             <td class="nowrap"><div class="acciones">
               <button onClick=${() => setAbierta(abierta === m.id ? null : m.id)}>${abierta === m.id ? 'Ocultar' : 'Ver cambios'}</button>
               ${vista === 'pendiente' && puedeRevisar(m) && html`
-                <button class="prim" onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'validar', m }); }}>Validar</button>
-                <button class="peligro" onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'rechazar', m }); }}>Rechazar</button>`}
+                <button class="prim" onClick=${() => { setTexto(''); setMsg({}); setErrModal(''); setAccion({ tipo: 'validar', m }); }}>Validar</button>
+                <button class="peligro" onClick=${() => { setTexto(''); setMsg({}); setErrModal(''); setAccion({ tipo: 'rechazar', m }); }}>Rechazar</button>`}
               ${m.estado === 'validada' && !m.visto_bueno_en && daVisto && (esAdmin || m.direccion_id === perfil.direccion_id) && html`<button class="prim" onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'visto', m }); }}>Dar visto bueno</button>`}
               ${false && m.entidad && html`<button onClick=${() => { setTexto(''); setMsg({}); setAccion({ tipo: 'permiso', m }); }}>Permitir corrección</button>`}
             </div></td></tr>
           ${abierta === m.id && html`<tr><td colspan=${ncol} style="background:#fbfcfc"><${Resumen} m=${m} cat=${cat} /></td></tr>`}`)}
         </tbody></table></div>`}
     ${accion && html`<${Modal} titulo=${{ validar: 'Validar cambio', rechazar: 'Rechazar cambio', permiso: 'Permitir corrección', visto: 'Visto bueno' }[accion.tipo] + ' · ' + (accion.m.proyectos ? codigoTexto(accion.m.proyectos) : accion.m.datos?.codigo || '')}
-        onCerrar=${() => setAccion(null)} acciones=${html`<button onClick=${() => setAccion(null)}>Cancelar</button>
-        <button class=${accion.tipo === 'rechazar' ? 'peligro' : 'prim'} onClick=${confirmar}>${{ validar: 'Validar y aplicar', rechazar: 'Rechazar', permiso: 'Otorgar permiso', visto: 'Dar visto bueno' }[accion.tipo]}</button>`}>
+        onCerrar=${() => { setAccion(null); setErrModal(''); }} acciones=${html`<button onClick=${() => { setAccion(null); setErrModal(''); }}>Cancelar</button>
+        <button class=${accion.tipo === 'rechazar' ? 'peligro' : 'prim'} disabled=${enviando} onClick=${confirmar}>${enviando ? 'Procesando…' : { validar: 'Validar y aplicar', rechazar: 'Rechazar', permiso: 'Otorgar permiso', visto: 'Dar visto bueno' }[accion.tipo]}</button>`}>
+      <${Aviso} tipo="error">${errModal}<//>
       <p><b>${TIPOS[accion.m.tipo]}</b> propuesto por <b>${accion.m.creado_por_nombre}</b> el ${fechaHora(accion.m.creado_en)}.
         ${accion.tipo === 'visto' && html` Validado por <b>${accion.m.revisado_por_nombre}</b> el ${fechaHora(accion.m.revisado_en)}.`}</p>
       <${Resumen} m=${accion.m} cat=${cat} />
-      <div class="form" style="margin-top:1rem"><label class="ancho">${accion.tipo === 'rechazar' ? 'Motivo del rechazo (obligatorio)' : accion.tipo === 'permiso' ? 'Motivo de la corrección (opcional)' : 'Observación (opcional)'}
+      <div class="form" style="margin-top:1rem"><label class="ancho">${accion.tipo === 'rechazar' ? html`Motivo del rechazo <b style="color:var(--rojo,#b3261e)">(obligatorio)</b>` : accion.tipo === 'permiso' ? 'Motivo de la corrección (opcional)' : 'Observación (opcional)'}
         <textarea value=${texto} onInput=${e => setTexto(e.target.value)} /></label></div>
       ${accion.tipo === 'visto' && html`<${Aviso} tipo="info">El visto bueno confirma la validación del jefe de unidad. No cambia los datos. Si encuentra un error, pida la corrección al Encargado de Planificación.<//>`}
       ${accion.tipo === 'validar' && accion.m.tipo === 'proyecto' && (accion.m.resumen || []).some(c => c.campo === 'estado' && c.ahora === 'Concluida') && html`<${Aviso} tipo="info">Se propone «Concluida». Si el proyecto aún no tiene 100 % de avance y al menos una evidencia, se validan los demás datos y el estado se mantiene; la unidad podrá volver a proponer «Concluida» cuando cumpla.<//>`}
