@@ -12,9 +12,9 @@ export function MiUnidad({ ctx }) {
   const direccion = cat.direcciones.find(d => d.id === perfil.direccion_id);
 
   useEffect(() => {
-    if (perfil.direccion_id) sb.from('v_proyectos').select('*').is('unidad_id', null).eq('direccion_id', perfil.direccion_id).order('codigo')
+    if (perfil.direccion_id) sb.from('v_proyectos').select('*').eq('gestion', ctx.gestion || 2026).is('unidad_id', null).eq('direccion_id', perfil.direccion_id).order('codigo')
       .then(({ data }) => setSinUnidad(data || []));
-    let q = sb.from('v_proyectos').select('*').order('fecha_entrega_vigente', { nullsFirst: false });
+    let q = sb.from('v_proyectos').select('*').eq('gestion', ctx.gestion || 2026).order('fecha_entrega_vigente', { nullsFirst: false });
     q = esDirector ? q.eq('direccion_id', perfil.direccion_id) : q.eq('unidad_id', perfil.unidad_id);
     q.then(async ({ data, error }) => {
       if (error) return setErr(mensajeError(error));
