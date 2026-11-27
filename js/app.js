@@ -1,4 +1,4 @@
-import { html, render, useState, useEffect, sb, ROLES, mensajeError, atras } from './lib.js';
+import { html, render, useState, useEffect, sb, ROLES, mensajeError, atras, GESTION_BASE, GESTIONES, prefijoGestion } from './lib.js';
 import { Aviso, Modal, ClaveInput } from './componentes.js';
 
 // Cada usuario cambia su propia contraseña (Supabase Auth, sin pasar por el administrador)
@@ -30,6 +30,7 @@ import { Ficha } from './vistas/ficha.js';
 import { MiUnidad } from './vistas/miunidad.js';
 import { Admin } from './vistas/admin.js';
 import { Validaciones } from './vistas/validaciones.js';
+import { Continuidad } from './vistas/continuidad.js';
 
 // Botón para instalar la aplicación en PC o Android (solo cuando el navegador lo permite)
 function BotonInstalar({ claro }) {
@@ -73,8 +74,10 @@ function faltaRespaldoMes(config) {
 }
 
 function ruta() {
-  const r = (location.hash || '#/tablero').slice(2).split('?')[0].split('/');
-  return { vista: r[0] || 'tablero', id: r[1] || null };
+  let r = (location.hash || '#/tablero').slice(2).split('?')[0].split('/');
+  let gestion = GESTION_BASE;
+  if (/^20\d\d$/.test(r[0])) { gestion = Number(r[0]); r = r.slice(1); }
+  return { vista: r[0] || 'tablero', id: r[1] || null, gestion };
 }
 
 // Pantalla para cuentas que aún no fueron aprobadas o fueron rechazadas
@@ -146,29 +149,36 @@ function Aplicacion({ sesion }) {
   const catAct = { ...cat, direcciones: dirVis, unidades: uniVis, personas: perVis };
   const ctx = { perfil, cat: catAct, recargar: cargarCatalogos, sesion };
   const unidad = cat.unidades.find(u => u.id === perfil.unidad_id);
-  const items = [
+  // Menú: un bloque por gestión (mismas pantallas, filtradas por año) y, abajo, lo común
+  const porGestion = g => [
     ['tablero', perfil.rol === 'admin' ? 'Consolidado SMCI' : 'Tablero'],
     ['estrategicos', 'Proyectos dentro del plan de gobierno'],
     ['proyectos', 'Proyectos fuera del plan de gobierno'],
     ...(perfil.unidad_id || perfil.rol === 'director' ? [['mi-unidad', perfil.rol === 'director' ? 'Mi dirección' : 'Mi unidad']] : []),
+    ...(g !== GESTION_BASE ? [['continuidad', `Continuidad desde ${g - 1}`]] : []),
+  ];
+  const comunes = [
     ...(perfil.rol === 'admin' || perfil.rol === 'jefe' || perfil.rol === 'director' ? [['validaciones', 'Validaciones']] : []),
     ...(perfil.rol === 'admin' ? [['admin', 'Administración']] : []),
   ];
   let ultimaLista = 'proyectos';
   try {
-    if (r.vista === 'estrategicos' || r.vista === 'proyectos') sessionStorage.setItem('smci_lista', r.vista);
-    ultimaLista = sessionStorage.getItem('smci_lista') || 'proyectos';
-  } catch { /* sin almacenamiento: se marca «Proyectos» */ }
-  const activo = r.vista === 'proyecto' ? ultimaLista : r.vista;
+    if (r.vista === 'estrategicos' || r.vista === 'proyectos') sessionStorage.setItem('smci_lista', r.gestion + '/' + r.vista);
+    ultimaLista = sessionStorage.getItem('smci_lista') || GESTION_BASE + '/proyectos';
+  } catch { /* sin almacenamiento */ }
+  // En la ficha se marca la lista de la que se vino (con su gestión)
+  const [gActiva, vActiva] = r.vista === 'proyecto' ? [Number(ultimaLista.split('/')[0]) || GESTION_BASE, ultimaLista.split('/')[1] || 'proyectos'] : [r.gestion, r.vista];
+  const ctxG = { ...ctx, gestion: r.gestion };
 
   let vista;
-  if (r.vista === 'estrategicos') vista = html`<${ListaProyectos} ctx=${ctx} modo="estrategicos" key="est" />`;
-  else if (r.vista === 'proyectos') vista = html`<${ListaProyectos} ctx=${ctx} modo="otros" key="otros" />`;
+  if (r.vista === 'estrategicos') vista = html`<${ListaProyectos} ctx=${ctxG} modo="estrategicos" key=${'est' + r.gestion} />`;
+  else if (r.vista === 'proyectos') vista = html`<${ListaProyectos} ctx=${ctxG} modo="otros" key=${'otros' + r.gestion} />`;
+  else if (r.vista === 'continuidad' && r.gestion !== GESTION_BASE) vista = html`<${Continuidad} ctx=${ctxG} key=${'cont' + r.gestion} />`;
   else if (r.vista === 'proyecto') vista = html`<${Ficha} ctx=${ctx} id=${r.id} key=${r.id} />`;
-  else if (r.vista === 'mi-unidad') vista = html`<${MiUnidad} ctx=${ctx} />`;
+  else if (r.vista === 'mi-unidad') vista = html`<${MiUnidad} ctx=${ctxG} key=${'mu' + r.gestion} />`;
   else if (r.vista === 'admin' && perfil.rol === 'admin') vista = html`<${Admin} ctx=${ctx} />`;
   else if (r.vista === 'validaciones' && ['admin', 'jefe', 'director'].includes(perfil.rol)) vista = html`<${Validaciones} ctx=${ctx} />`;
-  else vista = html`<${Tablero} ctx=${ctx} />`;
+  else vista = html`<${Tablero} ctx=${ctxG} key=${'tab' + r.gestion} />`;
 
   return html`
     <${AvisoSinRed} />
@@ -177,7 +187,10 @@ function Aplicacion({ sesion }) {
       <aside class="lateral ${menu ? 'abierto' : ''}">
         <div class="marca"><div class="logo escudo"><img src="iconos/escudo-gamlp.png" alt="Escudo del Gobierno Autónomo Municipal de La Paz" /></div>
           <div><b>Proyectos SMCI</b><small>Ciudad Inteligente · GAMLP</small></div></div>
-        <nav class="nav">${items.map(([k, t]) => html`<a href="#/${k}" class=${activo === k ? 'activo' : ''}>${t}</a>`)}</nav>
+        <nav class="nav">${GESTIONES.map(g => html`<div class=${'nav-gestion' + (gActiva === g ? ' actual' : '')}>Gestión ${g}</div>
+            ${porGestion(g).map(([k, t]) => html`<a href=${prefijoGestion(g) + k} class=${gActiva === g && vActiva === k ? 'activo' : ''}>${t}</a>`)}`)}
+          ${comunes.length > 0 && html`<div class="nav-gestion">General</div>`}
+          ${comunes.map(([k, t]) => html`<a href="#/${k}" class=${r.vista === k ? 'activo' : ''}>${t}</a>`)}</nav>
         <div class="pie">
           <b>${perfil.nombre || perfil.correo}</b>
           ${perfil.cargo || (esSecretaria ? 'Despacho de la Secretaría' : ROLES[perfil.rol])}${unidad ? ' · ' + unidad.sigla : ''}

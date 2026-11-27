@@ -87,7 +87,7 @@ export function Tablero({ ctx }) {
   const [verRevisar, setVerRevisar] = useState(false);
 
   useEffect(() => {
-    sb.from('v_proyectos').select('*').order('codigo').then(({ data, error }) => error ? setErr(mensajeError(error)) : setLista(data));
+    sb.from('v_proyectos').select('*').eq('gestion', ctx.gestion || 2026).order('codigo').then(({ data, error }) => error ? setErr(mensajeError(error)) : setLista(data));
     cargarMeses().then(setMeses);
   }, []);
   useEffect(() => { cargarReportesMes(f.mes).then(setRepMes); }, [f.mes]);
@@ -136,7 +136,7 @@ export function Tablero({ ctx }) {
   return html`
     <div class="encabezado">
       <div><h1>${ctx.perfil.rol === 'admin' ? 'Consolidado SMCI' : 'Tablero de ' + (ctx.perfil.rol === 'director'
-          ? (cat.direcciones[0]?.sigla || 'mi dirección') : (cat.unidades[0]?.sigla || 'mi unidad'))}</h1>
+          ? (cat.direcciones[0]?.sigla || 'mi dirección') : (cat.unidades[0]?.sigla || 'mi unidad'))} <span class="pill">Gestión ${ctx.gestion || 2026}</span></h1>
         <p>${enMes ? `Situación reportada en ${nombreMes(f.mes)}` : 'Situación actual'} · ${r.total} proyectos · fecha de corte: día ${cat.config.dia_corte ?? 25} de cada mes</p></div>
       <div class="acciones">
         <${BotonesExportarTodo} lista=${filtrada} ctx=${ctx} sub=${sub} />

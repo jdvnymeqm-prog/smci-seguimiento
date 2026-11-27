@@ -63,6 +63,8 @@ export function Ficha({ ctx, id }) {
               : html`<span class="pill">${p.codigo}</span>`}
             ${p.codigos_continuidad && html`<span class="pill" style="background:#fff;font-size:.72rem" title="Códigos que se unieron a este proyecto">también: ${p.codigos_continuidad}</span>`}
             ${p.codigo_gobierno && html`<span class="pill">Proyecto de gobierno ${p.codigo_gobierno}</span>`}
+            <span class="pill" title="Gestión (año) del proyecto">Gestión ${p.gestion || 2026}</span>
+            ${p.proyecto_origen_id && html`<a class="pill" href=${'#/proyecto/' + p.proyecto_origen_id} title="Proyecto de la gestión anterior al que se dio continuidad">↩ Continúa de ${(p.gestion || 2027) - 1}</a>`}
             <${Estado} e=${p.estado} /> <${Semaforo} s=${p.semaforo} dias=${p.dias_restantes} />${p.sin_reporte ? html` <span class="etiqueta" title="Meses que debían reportarse y no tienen reporte">Sin reporte: ${p.sin_reporte}</span>` : ''}
             ${p.por_validar && html`<span class="etiqueta" title=${p.por_validar_motivo || ''}>Datos por revisar</span>`}</div>
           <h1>${p.nombre}</h1>
@@ -384,7 +386,7 @@ function Tareas({ p, tareas: validadas, pendientes = [], editable, ctx, listo, f
   return html`
     ${p.meta_productos && html`<${Entregas} p=${p} tareas=${todas} editable=${editable} ctx=${ctx} listo=${listo} fallo=${fallo} puedeTocar=${puedeTocar} retirar=${retirar} />`}
     <div class="panel"><h3>Línea de tiempo</h3><${Gantt} tareas=${todas.filter(t => !t._prop)} p=${p} />
-      ${p.meta_productos && html`<p class="ayuda">Incluye las entregas de mobiliario con su fecha de entrega.</p>`}</div>
+      ${p.meta_productos && html`<p class="ayuda">Incluye las entregas de ${queSeEntrega(p)} con su fecha de entrega.</p>`}</div>
     <div class="panel">
       <div class="encabezado"><div><h3>${p.meta_productos ? 'Otras tareas' : 'Tareas'}</h3><p>Peso total ${pesoTotal}. El avance del proyecto es Σ(peso × avance) / Σ peso.</p></div>
         <div class="acciones">${editable && html`<button class="prim" onClick=${() => p.meta_productos ? setEntregaNueva(true) : setEdit({})}>+ Nueva tarea</button>`}
@@ -446,7 +448,7 @@ function MetaCentros({ p, tareas, ctx, listo, fallo }) {
   }
   return html`<div class="panel">
     <div class="encabezado"><div><h3>Centros educativos y cumplimiento</h3>
-      <p>Porcentaje de cumplimiento = unidades educativas que recibieron juegos de mobiliario / total de centros educativos.</p></div>
+      <p>Porcentaje de cumplimiento = unidades educativas que recibieron ${unidadDe(p)} / total de centros educativos.</p></div>
       ${esAdmin && !editar && html`<button onClick=${() => setEditar(true)}>Editar totales</button>`}</div>
     <div class="rejilla kpis" style="margin-bottom:.8rem">
       <div class="kpi"><div class="v">${metaTotal}</div><div class="t">centros educativos totales</div></div>
@@ -472,6 +474,10 @@ const TIPOS_CENTRO = [['UE fiscal', 'Unidades educativas fiscales'], ['UE de con
 
 const NIVELES = ['Inicial', 'Primaria', 'Secundaria'];
 const juegos = t => Number(t.cantidad || 0);
+// Unidad de medida de los productos del proyecto: «juegos de mobiliario», «mochilas o morrales»…
+const unidadDe = p => p.unidad_producto || 'juegos de mobiliario';
+const unidadCorta = p => (unidadDe(p).split(' ')[0] || 'unidades');   // «juegos», «mochilas»
+const queSeEntrega = p => unidadDe(p).replace(/^juegos de /, '');      // «mobiliario», «mochilas o morrales»
 
 // Pestaña Tareas del proyecto de mobiliario: cada entrega es un producto (unidad educativa + juegos por nivel).
 // Los datos que falten quedan como casillas libres para llenar; al final, totales por nivel, U.E. atendidas y % sobre el total.
@@ -502,15 +508,15 @@ function Entregas({ p, tareas, editable, ctx, listo, fallo, puedeTocar = () => f
   }
   const c = (t, campo, valor, extra = {}) => html`<${Celda} t=${t} p=${p} ctx=${ctx} listo=${listo} editable=${editable && !t._prop} campo=${campo} valor=${valor} ...${extra} />`;
   return html`<div class="panel">
-    <div class="encabezado"><div><h3>Productos: entregas de mobiliario</h3>
+    <div class="encabezado"><div><h3>Productos: entregas de ${queSeEntrega(p)}</h3>
       <p>Cada fila es una entrega registrada con «+ Nueva tarea»: se ordena sola por fecha y suma a los totales y a la línea de tiempo al ser validada. Las casillas vacías quedan libres para completar el dato que falta.</p></div>
-      <div class="acciones">${editable && html`<button class="prim" onClick=${() => setForm({})}>+ Agregar tarea (entrega de mobiliario)</button>`}
-        <button onClick=${() => exportarExcel('entregas_mobiliario_' + p.codigo, COL_ENTREGAS, entregas.map(t => ({ ...t, ue: nUE(t), por_asignar: porAsignar(t) || '' })), 'Entregas')}>Exportar Excel</button></div></div>
+      <div class="acciones">${editable && html`<button class="prim" onClick=${() => setForm({})}>+ Agregar tarea (entrega de ${queSeEntrega(p)})</button>`}
+        <button onClick=${() => exportarExcel('entregas_' + p.codigo, colEntregas(p), entregas.map(t => ({ ...t, ue: nUE(t), por_asignar: porAsignar(t) || '' })), 'Entregas')}>Exportar Excel</button></div></div>
     ${pend > 0 && html`<${Aviso} tipo="info">${pend} registro(s) esperan validación del jefe de unidad; se sumarán al validarlos.<//>`}
     ${!entregas.length && !editable ? html`<div class="vacio">Aún no hay entregas registradas.</div>` : html`
     <div class="tabla-env"><table class="tabla-productos">
       <thead><tr><th rowspan="2">N.º</th><th rowspan="2">Fecha</th><th rowspan="2">Unidad educativa</th><th rowspan="2">Categoría</th><th rowspan="2" class="num">N.º de U.E.</th>
-          <th colspan="3" class="centro">Juegos de mobiliario por nivel</th><th rowspan="2" class="num">Total juegos</th><th rowspan="2">Evidencia</th>${editable && html`<th rowspan="2"></th>`}</tr>
+          <th colspan="3" class="centro">${unidadDe(p)[0].toUpperCase() + unidadDe(p).slice(1)} por nivel</th><th rowspan="2" class="num">Total ${unidadCorta(p)}</th><th rowspan="2">Evidencia</th>${editable && html`<th rowspan="2"></th>`}</tr>
         <tr>${NIVELES.map(n => html`<th class="num">${n}</th>`)}</tr></thead>
       <tbody>${entregas.map((t, i) => html`<tr>
           <td>${t.codigo || i + 1}${t._prop ? html`<br/><span class="etiqueta" title=${'Registrada por ' + (t._autorNombre || '')}>Por validar</span>` : ''}</td>
@@ -519,13 +525,13 @@ function Entregas({ p, tareas, editable, ctx, listo, fallo, puedeTocar = () => f
           <td>${c(t, 'tipo_centro', t.tipo_centro, { opciones: TIPOS_CENTRO, mostrar: t.tipo_centro && nombreTipo(t.tipo_centro) })}</td>
           <td class="num">${t.centros ?? 1}</td>
           ${NIVELES.map(n => html`<td class="num">${c(t, 'nivel:' + n, nivel(t, n), { tipo: 'number' })}</td>`)}
-          <td class="num"><b>${juegos(t) || ''}</b>${porAsignar(t) > 0 && html`<div class="ayuda" title="Juegos registrados sin nivel: anótelos en Inicial, Primaria o Secundaria">${porAsignar(t)} sin nivel</div>`}</td>
+          <td class="num"><b>${juegos(t) || ''}</b>${porAsignar(t) > 0 && html`<div class="ayuda" title="Cantidad registrada sin nivel: anótela en Inicial, Primaria o Secundaria">${porAsignar(t)} sin nivel</div>`}</td>
           <td class="ayuda">${c(t, 'evidencia', t.evidencia, { tipo: 'text' })}</td>
           ${editable && html`<td class="nowrap">${puedeTocar(t) ? html`<div class="acciones"><button onClick=${() => setForm(t)}>Editar</button>
               ${t._prop && html`<button class="peligro" onClick=${() => retirar(t)}>Eliminar</button>`}
               ${!t._prop && ctx.perfil.rol === 'admin' && html`<button class="peligro" onClick=${() => eliminarValidada(t)}>Eliminar</button>`}</div>`
             : html`<span class="ayuda" title="Entrega validada: para cambiarla o eliminarla consulte al administrador">🔒 Validada</span>`}</td>`}</tr>`)}</tbody>
-      <tfoot><tr class="total"><td colspan="5"><b>Total juegos de mobiliario por nivel</b></td>
+      <tfoot><tr class="total"><td colspan="5"><b>Total ${unidadDe(p)} por nivel</b></td>
           ${NIVELES.map(n => html`<td class="num"><b>${totNivel(n)}</b></td>`)}
           <td class="num"><b>${totJuegos}</b>${totPorAsignar > 0 && html`<div class="ayuda">${totPorAsignar} sin nivel</div>`}</td><td colspan=${editable ? 2 : 1}></td></tr>
         <tr class="total"><td colspan="5"><b>Unidades educativas atendidas</b></td>
@@ -576,11 +582,11 @@ function Celda({ t, p, ctx, listo, editable, campo, valor, tipo, opciones, mostr
     ${err && html`<div class="ayuda" style="color:var(--rojo)">${err}</div>`}`;
 }
 
-const COL_ENTREGAS = [
+const colEntregas = p => [
   { titulo: 'N.º', campo: 'codigo' }, { titulo: 'Fecha de entrega', valor: t => fecha(t.fecha_fin_original) }, { titulo: 'Unidad educativa', campo: 'nombre', ancho: 40 },
   { titulo: 'Categoría', campo: 'tipo_centro' }, { titulo: 'N.º de U.E.', campo: 'ue' },
-  ...NIVELES.map(n => ({ titulo: 'Juegos ' + n, valor: t => (t.niveles || {})[n] ?? '' })),
-  { titulo: 'Juegos sin nivel', campo: 'por_asignar' }, { titulo: 'Total juegos', campo: 'cantidad' },
+  ...NIVELES.map(n => ({ titulo: unidadCorta(p)[0].toUpperCase() + unidadCorta(p).slice(1) + ' ' + n, valor: t => (t.niveles || {})[n] ?? '' })),
+  { titulo: 'Sin nivel', campo: 'por_asignar' }, { titulo: 'Total ' + unidadDe(p), campo: 'cantidad' },
   { titulo: 'Estudiantes beneficiados', campo: 'estudiantes' }, { titulo: 'Descripción', campo: 'observaciones', ancho: 60 },
   { titulo: 'Evidencia', campo: 'evidencia', ancho: 30 }, { titulo: 'Estado', campo: 'estado' },
 ];
@@ -602,8 +608,8 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
     if (!d.nombre.trim()) return setErr('Escriba el nombre del centro educativo.');
     if (!d.tipo_centro) return setErr('Elija la categoría de la unidad educativa (fiscal, de convenio, especial o alternativa).');
     if (!d.fecha) return setErr('Indique la fecha de entrega.');
-    if (!total) return setErr('Indique la cantidad de juegos de mobiliario entregados.');
-    if (d.lineas.some(l => entero(l.juegos) && !l.nivel)) return setErr('Elija el nivel al que pertenecen los juegos de cada fila.');
+    if (!total) return setErr(`Indique la cantidad de ${unidadDe(p)} entregados.`);
+    if (d.lineas.some(l => entero(l.juegos) && !l.nivel)) return setErr('Elija el nivel de cada fila (Inicial, Primaria o Secundaria).');
     if (!entero(d.centros)) return setErr('Indique cuántas unidades educativas se atendieron en esta entrega (1 o más).');
     const fila = { nombre: d.nombre.trim().replace(/\s+/g, ' '), tipo_centro: d.tipo_centro, cantidad: total, niveles: niv, centros: entero(d.centros),
       estudiantes: entero(d.estudiantes), observaciones: d.detalle.trim() || null, evidencia: d.evidencia.trim() || null };
@@ -628,12 +634,12 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
     onGuardado(admin ? (nueva ? 'Entrega registrada.' : 'Entrega corregida.')
       : (nueva ? 'Entrega enviada a validación: se sumará a los centros atendidos cuando la valide su jefe de unidad.' : 'Corrección enviada a validación.'));
   }
-  return html`<${Modal} titulo=${nueva ? 'Nueva tarea: entrega de mobiliario' : 'Corregir entrega · ' + t.nombre} onCerrar=${onCerrar} acciones=${html`
+  return html`<${Modal} titulo=${nueva ? 'Nueva tarea: entrega de ' + queSeEntrega(p) : 'Corregir entrega · ' + t.nombre} onCerrar=${onCerrar} acciones=${html`
       <button onClick=${onCerrar}>Cancelar</button><button class="prim" onClick=${guardar}>Guardar</button>`}>
     <${Aviso} tipo="error">${err}<//>
     <div class="form">
-      <label class="ancho">Nombre del centro educativo que recibió el mobiliario<input value=${d.nombre} onInput=${set('nombre')} placeholder="p. ej. U.E. Natalia Palacios" />
-        <span class="ayuda">Escríbalo siempre igual: si el mismo centro recibe otra entrega, se suman los juegos pero cuenta una sola vez en los 418.</span></label>
+      <label class="ancho">Nombre del centro educativo que recibió ${queSeEntrega(p) === 'mobiliario' ? 'el mobiliario' : 'las ' + queSeEntrega(p)}<input value=${d.nombre} onInput=${set('nombre')} placeholder="p. ej. U.E. Natalia Palacios" />
+        <span class="ayuda">Escríbalo siempre igual: si el mismo centro recibe otra entrega, se suman las cantidades pero cuenta una sola vez en los ${p.meta_productos}.</span></label>
       <label>N.º de unidades educativas atendidas en esta entrega<input type="number" min="1" step="1" value=${d.centros} onInput=${set('centros')} />
         <span class="ayuda">Normalmente 1. Si la entrega abarcó varias U.E. con un solo registro (p. ej. un macrodistrito), indique cuántas.</span></label>
       <label>Categoría de unidad educativa<select value=${d.tipo_centro} onChange=${set('tipo_centro')}><option value="">Elija…</option>
@@ -641,17 +647,17 @@ function FormEntrega({ t, p, ctx, onCerrar, onGuardado }) {
       <label>Fecha de entrega<${FechaInput} valor=${d.fecha} disabled=${!nueva && !t._prop && ctx.perfil.rol !== 'admin'} onCambio=${v => setD(x => ({ ...x, fecha: v }))} />
         ${!nueva && !t._prop && ctx.perfil.rol !== 'admin' && html`<span class="ayuda">La fecha la corrige el administrador.</span>`}</label>
       <fieldset class="ancho" style="border:1px solid var(--borde,#d6dde1);border-radius:8px;padding:.6rem .8rem">
-        <legend>Juegos de mobiliario entregados <span class="ayuda">(unidad de medida: juego)</span></legend>
+        <legend>${unidadDe(p)[0].toUpperCase() + unidadDe(p).slice(1)} entregados <span class="ayuda">(unidad de medida: ${unidadCorta(p).replace(/s$/, '')})</span></legend>
         ${d.lineas.map((l, i) => html`<div class="form" style="margin:0 0 .4rem;align-items:end">
-          <label>Nivel al que pertenecen los juegos<select value=${l.nivel} onChange=${e => linea(i, 'nivel', e.target.value)}>
+          <label>Nivel<select value=${l.nivel} onChange=${e => linea(i, 'nivel', e.target.value)}>
             <option value="">Elija…</option>${NIVELES.map(n => html`<option>${n}</option>`)}</select></label>
-          <label>Cantidad de juegos<input type="number" min="0" step="1" value=${l.juegos} onInput=${e => linea(i, 'juegos', e.target.value)} /></label>
+          <label>Cantidad de ${unidadCorta(p)}<input type="number" min="0" step="1" value=${l.juegos} onInput=${e => linea(i, 'juegos', e.target.value)} /></label>
           ${d.lineas.length > 1 && html`<button type="button" onClick=${() => setD(x => ({ ...x, lineas: x.lineas.filter((_, j) => j !== i) }))}>Quitar</button>`}
         </div>`)}
         <button type="button" onClick=${() => setD(x => ({ ...x, lineas: [...x.lineas, { nivel: '', juegos: '' }] }))}>+ Otro nivel en la misma entrega</button>
-        <p style="margin:.5rem 0 0"><b>Total: ${total} juegos de mobiliario</b></p></fieldset>
+        <p style="margin:.5rem 0 0"><b>Total: ${total} ${unidadDe(p)}</b></p></fieldset>
       <label>Estudiantes beneficiados (opcional)<input type="number" min="0" step="1" value=${d.estudiantes} onInput=${set('estudiantes')} /></label>
-      <label class="ancho">Descripción (opcional)<textarea value=${d.detalle} onInput=${set('detalle')} placeholder="Lo que indiquen las evidencias: p. ej. 22 juegos (22 mesas y 44 sillas) para 3.º y 4.º de primaria; macrodistrito Sur" /></label>
+      <label class="ancho">Descripción (opcional)<textarea value=${d.detalle} onInput=${set('detalle')} placeholder=${queSeEntrega(p) === 'mobiliario' ? 'Lo que indiquen las evidencias: p. ej. 22 juegos (22 mesas y 44 sillas) para 3.º y 4.º de primaria; macrodistrito Sur' : 'Lo que indiquen las evidencias: p. ej. cursos, macrodistrito, acta de entrega'} /></label>
       <label class="ancho">Evidencia (acta de entrega, enlace o referencia)<input value=${d.evidencia} onInput=${set('evidencia')} /></label>
     </div>
     ${t._prop && html`<${Aviso} tipo="info">Esta entrega aún no fue validada: puede corregirla libremente.<//>`}

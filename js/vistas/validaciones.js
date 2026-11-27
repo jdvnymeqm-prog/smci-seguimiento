@@ -90,7 +90,7 @@ export function ListaPropuestas({ ctx, proyectoId, compacto }) {
   }
   const uni = id => (cat.todasUnidades.find(u => u.id === id) || {}).sigla || 'Por validar';
   const nombreProy = m => m.proyectos ? html`<a href=${'#/proyecto/' + m.proyecto_id}><b>${codigoPrincipal(m.proyectos)}</b></a> ${m.proyectos.nombre}`
-    : html`<b>${m.datos?.codigo || ''}</b> ${m.datos?.nombre || ''} <span class="etiqueta">Nuevo</span>`;
+    : html`<b>${m.datos?.codigo || ''}</b> ${m.datos?.nombre || ''} <span class="etiqueta">${m.datos?.proyecto_origen_id ? 'Continuidad ' + m.datos.gestion : 'Nuevo' + (m.datos?.gestion && m.datos.gestion !== 2026 ? ' · Gestión ' + m.datos.gestion : '')}</span>`;
   const cols = [
     { titulo: 'Proyecto', valor: m => m.proyectos ? codigoTexto(m.proyectos) : m.datos?.codigo }, { titulo: 'Unidad', valor: m => uni(m.unidad_id) },
     { titulo: 'Tipo', valor: m => TIPOS[m.tipo] }, { titulo: 'Propuesto por', campo: 'creado_por_nombre' }, { titulo: 'Fecha', valor: m => fechaHora(m.creado_en) },

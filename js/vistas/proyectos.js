@@ -11,7 +11,8 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
   const [nuevo, setNuevo] = useState(false);
   const [err, setErr] = useState('');
 
-  const cargar = () => sb.from('v_proyectos').select('*').order('codigo')
+  const gestion = ctx.gestion || 2026;
+  const cargar = () => sb.from('v_proyectos').select('*').eq('gestion', gestion).order('codigo')
     .then(({ data, error }) => error ? setErr(mensajeError(error)) : setLista(data));
   useEffect(() => { cargar(); cargarMeses().then(setMeses); }, []);
   useEffect(() => { cargarReportesMes(f.mes).then(setRepMes); }, [f.mes]);
@@ -37,7 +38,7 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
 
   return html`
     <div class="encabezado">
-      <div><h1>${esEst ? 'Proyectos dentro del plan de gobierno' : 'Proyectos fuera del plan de gobierno'}</h1><p>${esEst
+      <div><h1>${esEst ? 'Proyectos dentro del plan de gobierno' : 'Proyectos fuera del plan de gobierno'} <span class="pill">Gestión ${gestion}</span></h1><p>${esEst
         ? 'Proyectos estratégicos del Eje III «Ciudad Inteligente» · programas E3P23 a E3P28. Cada proyecto con su numeral; si también tiene código SMCI, va debajo.'
         : `Proyectos de la Secretaría que no forman parte del plan de gobierno (Eje III): ${filtrada.length} de ${lista.length - nEst}, agrupados por dirección y unidad.`}</p></div>
       <div class="acciones">
@@ -156,12 +157,12 @@ export function NuevoProyecto({ ctx, lista, onCerrar, onCreado }) {
         codigo: d.codigo.trim(), codigo_gobierno: d.codigo_gobierno.trim() || null, nombre: d.nombre.trim(),
         descripcion: d.descripcion || null, objetivo: d.objetivo || null, unidad_id: d.unidad_id, responsable_id: d.responsable_id || null,
         fecha_inicio: d.fecha_inicio || null, fecha_entrega_original: d.fecha_entrega_original || null, estado: d.estado,
-        por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null } });
+        por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null, gestion: ctx.gestion || 2026 } });
       setOcupado(false);
       if (error) return setErr(mensajeError(error));
       if (perfil.rol === 'director') {
         // La dirección no necesita validación: el proyecto ya existe; se abre su ficha para seguir llenándolo
-        const { data: pr } = await sb.from('proyectos').select('id').eq('codigo', d.codigo.trim()).maybeSingle();
+        const { data: pr } = await sb.from('proyectos').select('id').eq('codigo', d.codigo.trim()).eq('gestion', ctx.gestion || 2026).maybeSingle();
         if (pr) { onCreado(pr.id); return; }
         alert('Proyecto creado. Ya aparece en la lista.');
         return onCerrar();
@@ -174,7 +175,7 @@ export function NuevoProyecto({ ctx, lista, onCerrar, onCreado }) {
       descripcion: d.descripcion || null, objetivo: d.objetivo || null,
       unidad_id: d.unidad_id, direccion_id: u.direccion_id, responsable_id: d.responsable_id || null,
       fecha_inicio: d.fecha_inicio || null, fecha_entrega_original: d.fecha_entrega_original || null,
-      estado: d.estado, por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null,
+      estado: d.estado, por_validar: !d.responsable_id, por_validar_motivo: !d.responsable_id ? 'Sin responsable' : null, gestion: ctx.gestion || 2026,
       ultima_actualizacion: new Date().toISOString(),
     }).select('id').single();
     setOcupado(false);

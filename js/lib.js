@@ -121,6 +121,12 @@ const COLORES_DIR = {
 export function colorDir(sigla) { return COLORES_DIR[sigla] || { fuerte: '#18465c', suave: '#eef3f5', nombre: '' }; }
 
 // ---------- Código estratégico (Eje III) primero; el código SMCI debajo ----------
+// ---------- Gestiones (años de trabajo) ----------
+// 2026 es la gestión base (rutas sin prefijo: #/tablero); las demás llevan el año delante (#/2027/tablero)
+export const GESTION_BASE = 2026;
+export const GESTIONES = [2026, 2027];
+export const prefijoGestion = g => (!g || g === GESTION_BASE) ? '#/' : `#/${g}/`;
+
 export function numeralEstrategico(c) { const m = /^E3P(\d+)$/.exec(c || ''); return m ? m[1] : c; }
 export function codigoPrincipal(p) { return p.codigo_estrategico ? numeralEstrategico(p.codigo_estrategico) : p.codigo; }
 // En textos (PDF, Excel, títulos): «24.5» o «23.1 (SMCI-06)»
