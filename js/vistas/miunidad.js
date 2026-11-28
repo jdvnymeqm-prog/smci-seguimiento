@@ -64,6 +64,15 @@ export function MiUnidad({ ctx }) {
       <div class="kpi ${ps.some(p => p.n_mod_pendientes) ? 'aviso' : ''}" style=${['jefe', 'director'].includes(perfil.rol) ? 'cursor:pointer' : ''} onClick=${() => ['jefe', 'director'].includes(perfil.rol) && (location.hash = '#/validaciones')}>
         <div class="v">${ps.reduce((a, p) => a + (p.n_mod_pendientes || 0), 0)}</div><div class="t">Modificaciones por validar${['jefe', 'director'].includes(perfil.rol) ? ' (clic para ver)' : ''}</div></div>
     </div>
+    <div class="panel"><h2>${esDirector ? 'Todos los proyectos de mi dirección' : 'Todos los proyectos de mi unidad'} (${ps.length})</h2>
+      <p class="ayuda">Incluye los proyectos dentro y fuera del plan de gobierno. Use «Cargar tareas» para registrar nuevas tareas o entregas del proyecto.</p>
+      ${ps.length ? html`<div class="tabla-env"><table>
+        <thead><tr><th>Código</th><th>Proyecto</th>${esDirector && html`<th>Unidad</th>`}<th>Estado</th><th>Avance</th><th>Vigente</th><th></th></tr></thead>
+        <tbody>${ps.map(p => html`<tr class="clic" onClick=${() => location.hash = '#/proyecto/' + p.id}>
+          <td class="nowrap"><${Codigo} p=${p} /></td><td>${p.nombre}</td>${esDirector && html`<td class="nowrap">${cat.unidades.find(u => u.id === p.unidad_id)?.sigla || 'Sin unidad'}</td>`}
+          <td><${EstadoProyecto} p=${p} /></td><td style="min-width:110px"><${Barra} v=${p.avance} /></td><td class="nowrap">${fecha(p.fecha_entrega_vigente)}</td>
+          <td class="nowrap"><a class="btn prim" href=${'#/proyecto/' + p.id + '?pestana=tareas'} onClick=${e => e.stopPropagation()}>Cargar tareas</a></td></tr>`)}</tbody></table></div>`
+        : html`<div class="vacio">${esDirector ? 'Su dirección' : 'Su unidad'} aún no tiene proyectos en esta gestión.</div>`}</div>
     ${sinUnidad.length > 0 && !esDirector && html`<div class="panel" style="background:#fff8e6;border-color:#f0dc9c"><h2>Proyectos de ${direccion?.sigla || 'su dirección'} sin unidad ni responsable (${sinUnidad.length})</h2>
       <p class="ayuda">Si su unidad está a cargo de alguno, ábralo y use «Completar datos del proyecto».</p>
       <${Lista} items=${sinUnidad} vacio="" /></div>`}

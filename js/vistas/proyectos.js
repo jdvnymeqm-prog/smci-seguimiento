@@ -1,4 +1,4 @@
-import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir } from '../lib.js';
+import { html, useState, useEffect, useMemo, sb, fecha, puedeEditar, exportarExcel, exportarPDF, mensajeError, bloqueoCambios, colorDir, prefijoGestion } from '../lib.js';
 import { EstadoProyecto, Semaforo, Barra, Aviso, QueFalta, Modal, Filtros, FechaInput, filtrosVacios, aplicarFiltros, describirFiltros, COLUMNAS_PROYECTO, Codigo, CodigoContinuidad, LeyendaDirecciones } from '../componentes.js';
 import { cargarMeses, cargarReportesMes } from './tablero.js';
 
@@ -22,6 +22,9 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
   // Sin repetir: lo estratégico va solo en su pestaña; «Otros» es lo que no tiene código del Eje III
   const filtrada = todos.filter(p => esEst ? !!p.codigo_estrategico : !p.codigo_estrategico);
   const nEst = lista ? lista.filter(p => p.codigo_estrategico).length : 0;
+  // Proyectos que cumplen los filtros pero están en la otra lista (p. ej. «mobiliario» buscado en «fuera del plan»)
+  const enOtra = todos.filter(p => esEst ? !p.codigo_estrategico : !!p.codigo_estrategico);
+  const misOtra = enOtra.filter(p => p.unidad_id && p.unidad_id === perfil.unidad_id || (perfil.rol === 'director' && p.direccion_id === perfil.direccion_id));
   const puedeCrear = !bloqueoCambios(cat, perfil) && (perfil.rol === 'admin' || ((perfil.rol === 'jefe' || perfil.rol === 'responsable') && perfil.unidad_id)
     || perfil.rol === 'director');
 
@@ -49,6 +52,9 @@ export function ListaProyectos({ ctx, modo = 'otros' }) {
     </div>
     <${Filtros} f=${f} setF=${setF} cat=${cat} meses=${meses} conTexto=${true} />
     <${LeyendaDirecciones} cat=${cat} />
+    ${enOtra.length > 0 && html`<div class="aviso-otra-lista"><b>${esEst ? 'Proyectos fuera del plan de gobierno' : 'Proyectos dentro del plan de gobierno'}:</b>${' '
+      + (misOtra.length ? `${misOtra.length} de ${perfil.rol === 'director' ? 'su dirección' : 'su unidad'} (${misOtra.slice(0, 4).map(p => p.codigo + ' ' + p.nombre.slice(0, 40)).join(' · ')}${misOtra.length > 4 ? '…' : ''}) y ` : '')
+      + `${enOtra.length} en total con estos filtros están en la otra lista. `}<a href=${prefijoGestion(gestion) + (esEst ? 'proyectos' : 'estrategicos')}>Ver ${esEst ? 'proyectos fuera del plan' : 'proyectos dentro del plan de gobierno'} →</a></div>`}
     ${esEst ? html`<${TablaEstrategicos} ps=${filtrada} cat=${cat} perfil=${perfil} />` : html`<div class="tabla-env"><table>
       <thead><tr><th>Código</th><th>Proyecto</th><th>Responsable</th><th>Estado</th><th>% avance</th>
         <th>Fecha original</th><th>Fecha vigente</th><th class="num">Reprog.</th><th></th><th>Qué falta</th></tr></thead>
