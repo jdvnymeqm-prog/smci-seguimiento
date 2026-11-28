@@ -87,7 +87,7 @@ export function Ficha({ ctx, id }) {
           ${p.codigos_continuidad && html`<p class="ayuda" style="margin:.2rem 0 .4rem">↻ <b>Proyecto al que se dio continuidad.</b> Código inicial: <b>${p.codigo}</b>. Se le unieron: ${p.codigos_continuidad}. Las tareas, evidencias y reportes muestran entre corchetes el código con el que se registraron.</p>`}
           <div class="meta">
             <span>${p.direccion_sigla} · ${p.unidad_sigla || 'Unidad por validar'}</span>
-            <span>Responsable: <b>${p.responsable_nombre || 'Sin responsable'}</b>${(() => { const a = respHist.find(r => !r.hasta && r.persona_id === p.responsable_id); return a && p.responsable_id ? html` <span class="ayuda">(desde ${fecha(a.desde)})</span>` : ''; })()}${p.apoyos_nombres ? ' · Apoyo: ' + p.apoyos_nombres : ''}</span>
+            <span>Responsable: <b>${p.responsable_nombre || 'Sin responsable'}</b>${(() => { const a = respHist.find(r => !r.tarea_id && !r.hasta && r.persona_id === p.responsable_id); return a && p.responsable_id ? html` <span class="ayuda">(desde ${fecha(a.desde)})</span>` : ''; })()}${p.apoyos_nombres ? ' · Apoyo: ' + p.apoyos_nombres : ''}</span>
             <span>Entrega original ${fecha(p.fecha_entrega_original)} · vigente <b>${fecha(p.fecha_entrega_vigente)}</b>${p.n_reprogramaciones ? ` · reprogramado ${p.n_reprogramaciones} ${p.n_reprogramaciones === 1 ? 'vez' : 'veces'}` : ''}</span>
             <span>Última actualización: ${fechaHora(p.ultima_actualizacion)}</span>
           </div>
@@ -281,7 +281,7 @@ function Datos({ p, respHist = [], apoyos, tareas, editable, ctx, listo, fallo }
   }
 
   // Proyecto medido por centros educativos (mobiliario): totales y % de cumplimiento en los datos generales
-  const meta = html`${p.meta_productos ? html`<${MetaCentros} p=${p} tareas=${tareas} ctx=${ctx} listo=${listo} fallo=${fallo} />` : ''}<${HistorialResponsables} hist=${respHist} />`;
+  const meta = html`${p.meta_productos ? html`<${MetaCentros} p=${p} tareas=${tareas} ctx=${ctx} listo=${listo} fallo=${fallo} />` : ''}<${HistorialResponsables} hist=${respHist.filter(r => !r.tarea_id)} />`;
   if (!editable) {
     return html`${meta}<div class="panel"><div class="datos">
       <div><small>Nombre</small><b>${p.nombre}</b></div><div><small>Código de proyecto</small><b>${p.codigo}</b>${p.codigos_continuidad ? html`<span class="cod-unidos">${p.codigos_continuidad}</span>` : ''}</div>
@@ -394,7 +394,19 @@ function Gantt({ tareas, p }) {
   <p class="ayuda">Barra: inicio → fin vigente (relleno = avance). Línea punteada: fin original. Línea roja: hoy. Contorno rojo: vencida sin concluir.</p>`;
 }
 
-function Tareas({ p, tareas: validadas, pendientes = [], editable, ctx, listo, fallo }) {
+// Responsable de una tarea: el actual con «desde» y, debajo, los anteriores con la fecha del cambio
+function RespTarea({ t, hist, personas }) {
+  const [ver, setVer] = useState(false);
+  const nombre = (personas.find(x => x.id === t.responsable_id) || {}).nombre || t.responsable_texto || '—';
+  const filas = t._prop ? [] : hist.filter(r => r.tarea_id === t.id);
+  const actual = filas.find(r => !r.hasta && r.persona_id === t.responsable_id);
+  const antes = filas.filter(r => r.hasta);
+  return html`${nombre}${actual ? html`<br/><span class="ayuda">desde ${fecha(actual.desde)}</span>` : ''}
+    ${antes.length > 0 && html`<br/><a href="#" class="ayuda" onClick=${e => { e.preventDefault(); setVer(!ver); }}>↻ ${antes.length} anterior${antes.length === 1 ? '' : 'es'} ${ver ? '▲' : '▼'}</a>
+      ${ver && html`<div class="ayuda" style="margin-top:.2rem">${antes.map(r => html`<div>• ${r.persona_nombre || '—'}: ${fecha(r.desde)} → ${fecha(r.hasta)} <span title=${r.cambiado_por || ''}>(cambio el ${fechaHora(r.hasta)})</span></div>`)}</div>`}`}`;
+}
+
+function Tareas({ p, respHist = [], tareas: validadas, pendientes = [], editable, ctx, listo, fallo }) {
   const [edit, setEdit] = useState(null);
   const [entregaNueva, setEntregaNueva] = useState(false);
   const { perfil } = ctx;
@@ -435,7 +447,7 @@ function Tareas({ p, tareas: validadas, pendientes = [], editable, ctx, listo, f
         <tbody>${tareas.map(t => html`<tr>
           <td><span class="pill">${t.tipo}</span> ${t.codigo ? html`<span class="pill">${t.codigo}</span>` : ''}${t.tipo_centro ? html` <span class="pill">${t.tipo_centro}</span>` : ''}
             ${t._prop ? html` <span class="etiqueta" title=${'Registrada por ' + (t._autorNombre || '') + '; espera validación'}>Pendiente de validación</span>` : ''}<br/>${t.nombre}</td>
-          <td>${(ctx.cat.personas.find(x => x.id === t.responsable_id) || {}).nombre || t.responsable_texto || '—'}</td>
+          <td><${RespTarea} t=${t} hist=${respHist} personas=${ctx.cat.personas} /></td>
           <td class="nowrap">${fecha(t.fecha_inicio)}</td><td class="nowrap">${fecha(t.fecha_fin_original)}</td>
           <td class="nowrap">${fecha(t.fecha_fin_vigente)}</td><td class="num">${t.peso}</td>
           <td style="min-width:110px"><${Barra} v=${t.avance} /></td><td><${Estado} e=${t.estado} /></td>
@@ -990,7 +1002,10 @@ function Bitacora({ p, ctx }) {
 }
 
 // ---------------------------------------------------------------------
-function exportarFichaPDF({ p, tareas, reprog, reportes, respHist = [] }) {
+function exportarFichaPDF({ p, tareas, reprog, reportes, respHist: rhTodo = [] }) {
+  const respHist = rhTodo.filter(r => !r.tarea_id);
+  const nomT = id => (tareas.find(t => t.id === id) || {}).nombre || '';
+  const rhTareas = rhTodo.filter(r => r.tarea_id && rhTodo.some(o => o.tarea_id === r.tarea_id && o.hasta));
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const izq = 40; let y = 40;
@@ -1015,6 +1030,9 @@ function exportarFichaPDF({ p, tareas, reprog, reportes, respHist = [] }) {
     styles: { fontSize: 7 }, headStyles: { fillColor: [24, 70, 92] } });
   if (respHist.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Responsable', 'Desde', 'Hasta (fecha del cambio)', 'Asignado por']],
     body: [...respHist].reverse().map(r => [r.persona_nombre || '', fechaHora(r.desde), r.hasta ? fechaHora(r.hasta) : 'Actual', r.cambiado_por || '']),
+    styles: { fontSize: 7 }, headStyles: { fillColor: [24, 70, 92] } });
+  if (rhTareas.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Tarea', 'Responsable', 'Desde', 'Hasta (fecha del cambio)', 'Asignado por']],
+    body: [...rhTareas].reverse().map(r => [nomT(r.tarea_id).slice(0, 80), r.persona_nombre || '', fechaHora(r.desde), r.hasta ? fechaHora(r.hasta) : 'Actual', r.cambiado_por || '']),
     styles: { fontSize: 7 }, headStyles: { fillColor: [24, 70, 92] } });
   if (reprog.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Reprogramación', 'Anterior', 'Nueva', 'Motivo', 'Quién / cuándo']],
     body: reprog.map(r => [r.entidad === 'proyecto' ? 'Proyecto' : 'Tarea: ' + r.tarea_nombre, fecha(r.fecha_anterior), fecha(r.fecha_nueva), r.motivo, `${r.usuario_nombre || ''} ${fechaHora(r.creado_en)}`]),
