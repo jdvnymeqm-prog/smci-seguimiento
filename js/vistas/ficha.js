@@ -87,7 +87,7 @@ export function Ficha({ ctx, id }) {
           ${p.codigos_continuidad && html`<p class="ayuda" style="margin:.2rem 0 .4rem">↻ <b>Proyecto al que se dio continuidad.</b> Código inicial: <b>${p.codigo}</b>. Se le unieron: ${p.codigos_continuidad}. Las tareas, evidencias y reportes muestran entre corchetes el código con el que se registraron.</p>`}
           <div class="meta">
             <span>${p.direccion_sigla} · ${p.unidad_sigla || 'Unidad por validar'}</span>
-            <span>Responsable: <b>${p.responsable_nombre || 'Sin responsable'}</b>${(() => { const a = respHist.find(r => !r.tarea_id && !r.hasta && r.persona_id === p.responsable_id); return a && p.responsable_id ? html` <span class="ayuda">(desde ${fecha(a.desde)})</span>` : ''; })()}${p.apoyos_nombres ? ' · Apoyo: ' + p.apoyos_nombres : ''}</span>
+            <span>Responsable: <b>${p.responsable_nombre || 'Sin responsable'}</b>${(() => { const a = respHist.find(r => !r.tarea_id && r.tipo !== 'apoyo' && !r.hasta && r.persona_id === p.responsable_id); return a && p.responsable_id ? html` <span class="ayuda">(desde ${fecha(a.desde)})</span>` : ''; })()}${p.apoyos_nombres ? ' · Apoyo: ' + p.apoyos_nombres : ''}</span>
             <span>Entrega original ${fecha(p.fecha_entrega_original)} · vigente <b>${fecha(p.fecha_entrega_vigente)}</b>${p.n_reprogramaciones ? ` · reprogramado ${p.n_reprogramaciones} ${p.n_reprogramaciones === 1 ? 'vez' : 'veces'}` : ''}</span>
             <span>Última actualización: ${fechaHora(p.ultima_actualizacion)}</span>
           </div>
@@ -203,13 +203,18 @@ function CompletarDatos({ p, ctx, listo, fallo }) {
 function HistorialResponsables({ hist }) {
   if (!hist.length) return '';
   const dias = r => Math.max(0, Math.round(((r.hasta ? Date.parse(r.hasta) : Date.now()) - Date.parse(r.desde)) / 86400000));
-  return html`<div class="panel"><h3>Responsables del proyecto <span class="pill">${hist.length}</span></h3>
-    <p class="ayuda">Cada cambio de responsable cierra el periodo del anterior en la fecha del cambio y abre el del nuevo. Los anteriores quedan como historial.</p>
+  const tabla = (filas, titulo) => filas.length ? html`<h4 style="margin:.8rem 0 .3rem">${titulo} <span class="pill">${filas.length}</span></h4>
     <div class="tabla-env"><table><thead><tr><th>Responsable</th><th>Desde</th><th>Hasta (fecha del cambio)</th><th class="num">Días a cargo</th><th>Asignado por</th></tr></thead>
-      <tbody>${hist.map(r => html`<tr>
+      <tbody>${filas.map(r => html`<tr>
         <td><b>${r.persona_nombre || '—'}</b>${!r.hasta ? html` <span class="pill" style="background:#e8f5ed;color:#2e7d4f">Actual</span>` : ''}</td>
         <td class="nowrap">${fechaHora(r.desde)}</td><td class="nowrap">${r.hasta ? fechaHora(r.hasta) : html`<span class="ayuda">A la fecha</span>`}</td>
-        <td class="num">${dias(r)}</td><td>${r.cambiado_por || '—'}</td></tr>`)}</tbody></table></div></div>`;
+        <td class="num">${dias(r)}</td><td>${r.cambiado_por || '—'}</td></tr>`)}</tbody></table></div>` : '';
+  // Primero los actuales, luego los anteriores (el más reciente arriba)
+  const orden = (a, b) => (!!a.hasta) - (!!b.hasta) || Date.parse(b.desde) - Date.parse(a.desde);
+  const principal = hist.filter(r => r.tipo !== 'apoyo').sort(orden), apoyo = hist.filter(r => r.tipo === 'apoyo').sort(orden);
+  return html`<div class="panel"><h3>Responsables del proyecto</h3>
+    <p class="ayuda">Cada cambio de responsable cierra el periodo del anterior en la fecha del cambio y abre el del nuevo. Los anteriores quedan como historial.</p>
+    ${tabla(principal, 'Responsable principal')}${tabla(apoyo, 'Responsables de apoyo')}</div>`;
 }
 
 function Datos({ p, respHist = [], apoyos, tareas, editable, ctx, listo, fallo }) {
@@ -1003,7 +1008,7 @@ function Bitacora({ p, ctx }) {
 
 // ---------------------------------------------------------------------
 function exportarFichaPDF({ p, tareas, reprog, reportes, respHist: rhTodo = [] }) {
-  const respHist = rhTodo.filter(r => !r.tarea_id);
+  const respHist = rhTodo.filter(r => !r.tarea_id);   // principal y apoyo
   const nomT = id => (tareas.find(t => t.id === id) || {}).nombre || '';
   const rhTareas = rhTodo.filter(r => r.tarea_id && rhTodo.some(o => o.tarea_id === r.tarea_id && o.hasta));
   const { jsPDF } = window.jspdf;
@@ -1028,8 +1033,8 @@ function exportarFichaPDF({ p, tareas, reprog, reportes, respHist: rhTodo = [] }
   doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Tarea', 'Fin orig.', 'Fin vig.', 'Peso', 'Avance', 'Estado']],
     body: tareas.map(t => [t.nombre, fecha(t.fecha_fin_original), fecha(t.fecha_fin_vigente), t.peso, pct(t.avance), t.estado]),
     styles: { fontSize: 7 }, headStyles: { fillColor: [24, 70, 92] } });
-  if (respHist.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Responsable', 'Desde', 'Hasta (fecha del cambio)', 'Asignado por']],
-    body: [...respHist].reverse().map(r => [r.persona_nombre || '', fechaHora(r.desde), r.hasta ? fechaHora(r.hasta) : 'Actual', r.cambiado_por || '']),
+  if (respHist.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Responsable', 'Rol', 'Desde', 'Hasta (fecha del cambio)', 'Asignado por']],
+    body: [...respHist].reverse().map(r => [r.persona_nombre || '', r.tipo === 'apoyo' ? 'Apoyo' : 'Principal', fechaHora(r.desde), r.hasta ? fechaHora(r.hasta) : 'Actual', r.cambiado_por || '']),
     styles: { fontSize: 7 }, headStyles: { fillColor: [24, 70, 92] } });
   if (rhTareas.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Tarea', 'Responsable', 'Desde', 'Hasta (fecha del cambio)', 'Asignado por']],
     body: [...rhTareas].reverse().map(r => [nomT(r.tarea_id).slice(0, 80), r.persona_nombre || '', fechaHora(r.desde), r.hasta ? fechaHora(r.hasta) : 'Actual', r.cambiado_por || '']),
