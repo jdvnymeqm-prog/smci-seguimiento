@@ -13,12 +13,13 @@ export function Ficha({ ctx, id }) {
   const [evid, setEvid] = useState([]);
   const [apoyos, setApoyos] = useState([]);
   const [pendientes, setPendientes] = useState([]);   // tareas nuevas que esperan validación
+  const [respHist, setRespHist] = useState([]);       // historial de responsables (anteriores y actual)
   const [tab, setTab] = usePestana('pestana', 'datos');
   const [err, setErr] = useState('');
   const [ok, setOk] = useState('');
 
   async function cargar() {
-    const [a, b, c, d, e, f, g] = await Promise.all([
+    const [a, b, c, d, e, f, g, rh] = await Promise.all([
       sb.from('v_proyectos').select('*').eq('id', id).single(),
       sb.from('tareas').select('*').eq('proyecto_id', id).order('orden').order('fecha_fin_vigente', { nullsFirst: false }),
       sb.from('reprogramaciones').select('*').eq('proyecto_id', id).order('creado_en', { ascending: false }),
@@ -26,12 +27,14 @@ export function Ficha({ ctx, id }) {
       sb.from('evidencias').select('*').eq('proyecto_id', id).order('creado_en', { ascending: false }),
       sb.from('proyecto_apoyos').select('persona_id').eq('proyecto_id', id),
       sb.from('propuestas').select('id,datos,creado_por,creado_por_nombre,creado_en').eq('proyecto_id', id).eq('tipo', 'crear_tarea').eq('estado', 'pendiente').order('creado_en'),
+      sb.from('responsables_historial').select('*').eq('proyecto_id', id).order('desde', { ascending: false }),
     ]);
     const er = a.error || b.error || c.error || d.error || e.error || f.error;
     if (a.error && a.error.code === 'PGRST116') { setErr('Este proyecto no existe o no pertenece a su unidad o dirección.'); return; }
     if (er) { setErr(mensajeError(er)); return; }
     setP(a.data); setTareas(b.data); setReprog(c.data); setReportes(d.data); setEvid(e.data);
     setApoyos(f.data.map(x => x.persona_id));
+    setRespHist(rh.data || []);
     // Cada tarea pendiente se muestra como tarea (marcada «pendiente») con su propuesta para editarla o eliminarla
     setPendientes((g.data || []).map(m => ({ ...m.datos, id: 'prop-' + m.id, _prop: m.id, _autor: m.creado_por, _autorNombre: m.creado_por_nombre,
       estado: m.datos?.estado || 'No iniciada', fecha_fin_vigente: m.datos?.fecha_fin_original || null })));
@@ -52,7 +55,7 @@ export function Ficha({ ctx, id }) {
   if (!p) return html`<div class="vacio">Cargando ficha…</div>`;
   // Con el bloqueo general activo, solo el administrador edita
   const editable = puedeEditar(perfil, p.unidad_id, p.direccion_id) && !bloqueoCambios(cat, perfil);
-  const h = { p, tareas, pendientes, reprog, reportes, evid, apoyos, editable, ctx, listo, fallo, recargar: cargar };
+  const h = { p, respHist, tareas, pendientes, reprog, reportes, evid, apoyos, editable, ctx, listo, fallo, recargar: cargar };
   async function eliminarProyecto() {
     const directo = perfil.rol === 'admin' || perfil.rol === 'director';
     if (!confirm(directo ? `¿Eliminar el proyecto ${p.codigo} «${p.nombre}» con todas sus tareas, reportes y evidencias? No se puede deshacer (queda en la bitácora).`
@@ -84,7 +87,7 @@ export function Ficha({ ctx, id }) {
           ${p.codigos_continuidad && html`<p class="ayuda" style="margin:.2rem 0 .4rem">↻ <b>Proyecto al que se dio continuidad.</b> Código inicial: <b>${p.codigo}</b>. Se le unieron: ${p.codigos_continuidad}. Las tareas, evidencias y reportes muestran entre corchetes el código con el que se registraron.</p>`}
           <div class="meta">
             <span>${p.direccion_sigla} · ${p.unidad_sigla || 'Unidad por validar'}</span>
-            <span>Responsable: <b>${p.responsable_nombre || 'Sin responsable'}</b>${p.apoyos_nombres ? ' · Apoyo: ' + p.apoyos_nombres : ''}</span>
+            <span>Responsable: <b>${p.responsable_nombre || 'Sin responsable'}</b>${(() => { const a = respHist.find(r => !r.hasta && r.persona_id === p.responsable_id); return a && p.responsable_id ? html` <span class="ayuda">(desde ${fecha(a.desde)})</span>` : ''; })()}${p.apoyos_nombres ? ' · Apoyo: ' + p.apoyos_nombres : ''}</span>
             <span>Entrega original ${fecha(p.fecha_entrega_original)} · vigente <b>${fecha(p.fecha_entrega_vigente)}</b>${p.n_reprogramaciones ? ` · reprogramado ${p.n_reprogramaciones} ${p.n_reprogramaciones === 1 ? 'vez' : 'veces'}` : ''}</span>
             <span>Última actualización: ${fechaHora(p.ultima_actualizacion)}</span>
           </div>
@@ -196,7 +199,20 @@ function CompletarDatos({ p, ctx, listo, fallo }) {
 }
 
 // ---------------------------------------------------------------------
-function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
+// Historial de responsables: quién estuvo a cargo, desde cuándo y hasta cuándo (fecha del cambio)
+function HistorialResponsables({ hist }) {
+  if (!hist.length) return '';
+  const dias = r => Math.max(0, Math.round(((r.hasta ? Date.parse(r.hasta) : Date.now()) - Date.parse(r.desde)) / 86400000));
+  return html`<div class="panel"><h3>Responsables del proyecto <span class="pill">${hist.length}</span></h3>
+    <p class="ayuda">Cada cambio de responsable cierra el periodo del anterior en la fecha del cambio y abre el del nuevo. Los anteriores quedan como historial.</p>
+    <div class="tabla-env"><table><thead><tr><th>Responsable</th><th>Desde</th><th>Hasta (fecha del cambio)</th><th class="num">Días a cargo</th><th>Asignado por</th></tr></thead>
+      <tbody>${hist.map(r => html`<tr>
+        <td><b>${r.persona_nombre || '—'}</b>${!r.hasta ? html` <span class="pill" style="background:#e8f5ed;color:#2e7d4f">Actual</span>` : ''}</td>
+        <td class="nowrap">${fechaHora(r.desde)}</td><td class="nowrap">${r.hasta ? fechaHora(r.hasta) : html`<span class="ayuda">A la fecha</span>`}</td>
+        <td class="num">${dias(r)}</td><td>${r.cambiado_por || '—'}</td></tr>`)}</tbody></table></div></div>`;
+}
+
+function Datos({ p, respHist = [], apoyos, tareas, editable, ctx, listo, fallo }) {
   const { cat, perfil } = ctx;
   const esAdmin = perfil.rol === 'admin';
   const [d, setD] = useState(null);
@@ -265,7 +281,7 @@ function Datos({ p, apoyos, tareas, editable, ctx, listo, fallo }) {
   }
 
   // Proyecto medido por centros educativos (mobiliario): totales y % de cumplimiento en los datos generales
-  const meta = p.meta_productos ? html`<${MetaCentros} p=${p} tareas=${tareas} ctx=${ctx} listo=${listo} fallo=${fallo} />` : '';
+  const meta = html`${p.meta_productos ? html`<${MetaCentros} p=${p} tareas=${tareas} ctx=${ctx} listo=${listo} fallo=${fallo} />` : ''}<${HistorialResponsables} hist=${respHist} />`;
   if (!editable) {
     return html`${meta}<div class="panel"><div class="datos">
       <div><small>Nombre</small><b>${p.nombre}</b></div><div><small>Código de proyecto</small><b>${p.codigo}</b>${p.codigos_continuidad ? html`<span class="cod-unidos">${p.codigos_continuidad}</span>` : ''}</div>
@@ -974,7 +990,7 @@ function Bitacora({ p, ctx }) {
 }
 
 // ---------------------------------------------------------------------
-function exportarFichaPDF({ p, tareas, reprog, reportes }) {
+function exportarFichaPDF({ p, tareas, reprog, reportes, respHist = [] }) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const izq = 40; let y = 40;
@@ -996,6 +1012,9 @@ function exportarFichaPDF({ p, tareas, reprog, reportes }) {
   });
   doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Tarea', 'Fin orig.', 'Fin vig.', 'Peso', 'Avance', 'Estado']],
     body: tareas.map(t => [t.nombre, fecha(t.fecha_fin_original), fecha(t.fecha_fin_vigente), t.peso, pct(t.avance), t.estado]),
+    styles: { fontSize: 7 }, headStyles: { fillColor: [24, 70, 92] } });
+  if (respHist.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Responsable', 'Desde', 'Hasta (fecha del cambio)', 'Asignado por']],
+    body: [...respHist].reverse().map(r => [r.persona_nombre || '', fechaHora(r.desde), r.hasta ? fechaHora(r.hasta) : 'Actual', r.cambiado_por || '']),
     styles: { fontSize: 7 }, headStyles: { fillColor: [24, 70, 92] } });
   if (reprog.length) doc.autoTable({ startY: doc.lastAutoTable.finalY + 14, head: [['Reprogramación', 'Anterior', 'Nueva', 'Motivo', 'Quién / cuándo']],
     body: reprog.map(r => [r.entidad === 'proyecto' ? 'Proyecto' : 'Tarea: ' + r.tarea_nombre, fecha(r.fecha_anterior), fecha(r.fecha_nueva), r.motivo, `${r.usuario_nombre || ''} ${fechaHora(r.creado_en)}`]),
