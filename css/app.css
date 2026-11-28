@@ -82,6 +82,9 @@ button, .btn { font: inherit; font-weight: 600; border-radius: 7px; border: 1px 
 button:hover { border-color: var(--primario-2); }
 button.prim { background: var(--primario); color: #fff; border-color: var(--primario); }
 button.prim:hover { background: var(--primario-2); }
+.btn.prim { background: var(--primario); color: #fff; border-color: var(--primario); }
+.btn.prim:hover { background: var(--primario-2); color: #fff; }
+.aviso-otra-lista { background: #eef5f9; border: 1px solid #c9dde8; border-radius: 8px; padding: .55rem .8rem; margin: .6rem 0; font-size: .92rem; }
 button.peligro { color: var(--peligro); border-color: #e5b4b0; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 .acciones { display: flex; flex-wrap: wrap; gap: .5rem; }
